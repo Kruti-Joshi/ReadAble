@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 
-const AudioPlayer = ({ text, speechText, isSimplified }) => {
+const AudioPlayer = ({ text, speechText, isSimplified, onWordChange }) => {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -9,14 +9,54 @@ const AudioPlayer = ({ text, speechText, isSimplified }) => {
   const [voice, setVoice] = useState('Neutral')
   const speechRef = useRef(null)
   const intervalRef = useRef(null)
+  const currentTimeRef = useRef(0)
 
   // Use speechText if available, otherwise fall back to regular text
   const textToSpeak = speechText || text
   const estimatedDuration = textToSpeak ? Math.max(textToSpeak.length / 10, 3) : 30 // Rough estimate
+  const words = textToSpeak ? textToSpeak.split(/\s+/).filter(word => word.length > 0) : []
 
   useEffect(() => {
     setDuration(estimatedDuration)
   }, [textToSpeak, estimatedDuration])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel()
+      }
+    }
+  }, [])
+
+  // Function to start precise word tracking using speech boundary events
+  const startWordTracking = (utterance) => {
+    if (!onWordChange || words.length === 0) return
+    
+    // Use the boundary event for precise word tracking
+    utterance.onboundary = (event) => {
+      if (event.name === 'word') {
+        // The charIndex tells us where the CURRENT word starts
+        const textUpToCurrentWord = textToSpeak.substring(0, event.charIndex)
+        const wordsBeforeCurrent = textUpToCurrentWord.trim().split(/\s+/).filter(word => word.length > 0)
+        // The current word index is the count of words before + this word (so we don't subtract 1)
+        const currentWordIndex = wordsBeforeCurrent.length
+        
+        if (currentWordIndex < words.length) {
+          onWordChange(currentWordIndex)
+        }
+      }
+    }
+  }
+
+  const stopWordTracking = () => {
+    if (onWordChange) {
+      onWordChange(-1) // Reset highlighting
+    }
+  }
 
   const handlePlay = () => {
     if ('speechSynthesis' in window) {
@@ -26,21 +66,29 @@ const AudioPlayer = ({ text, speechText, isSimplified }) => {
         setIsPaused(false)
         setIsPlaying(true)
         startTimer()
+        // Note: Can't restart word tracking on resume since we lost the utterance
       } else {
         // Start new speech
         const utterance = new SpeechSynthesisUtterance(textToSpeak)
         utterance.rate = playbackRate
+        
+        // Set up word tracking before other events
+        startWordTracking(utterance)
+        
         utterance.onend = () => {
           setIsPlaying(false)
           setIsPaused(false)
           setCurrentTime(0)
+          currentTimeRef.current = 0 // Reset ref
           clearInterval(intervalRef.current)
+          stopWordTracking()
         }
         
         speechRef.current = utterance
         window.speechSynthesis.speak(utterance)
         setIsPlaying(true)
         setCurrentTime(0)
+        currentTimeRef.current = 0 // Reset ref
         startTimer()
       }
     }
@@ -52,6 +100,7 @@ const AudioPlayer = ({ text, speechText, isSimplified }) => {
       setIsPaused(true)
       setIsPlaying(false)
       clearInterval(intervalRef.current)
+      stopWordTracking()
     }
   }
 
@@ -61,18 +110,22 @@ const AudioPlayer = ({ text, speechText, isSimplified }) => {
       setIsPlaying(false)
       setIsPaused(false)
       setCurrentTime(0)
+      currentTimeRef.current = 0 // Reset ref
       clearInterval(intervalRef.current)
+      stopWordTracking()
     }
   }
 
   const startTimer = () => {
     intervalRef.current = setInterval(() => {
       setCurrentTime(prev => {
-        if (prev >= duration) {
+        const newTime = prev >= duration ? duration : prev + 0.1
+        currentTimeRef.current = newTime // Keep ref in sync
+        
+        if (newTime >= duration) {
           clearInterval(intervalRef.current)
-          return duration
         }
-        return prev + 0.1
+        return newTime
       })
     }, 100)
   }
@@ -82,8 +135,10 @@ const AudioPlayer = ({ text, speechText, isSimplified }) => {
     const percent = (e.clientX - rect.left) / rect.width
     const newTime = percent * duration
     setCurrentTime(newTime)
+    currentTimeRef.current = newTime // Keep ref in sync
     
-    // For a real implementation, you'd need to restart speech from the calculated position
+    // For seeking during speech, we need to restart from the new position
+    // Since Web Speech API doesn't support seeking, we stop and let user restart
     if (isPlaying) {
       handleStop()
     }
@@ -98,8 +153,7 @@ const AudioPlayer = ({ text, speechText, isSimplified }) => {
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <div className="flex items-center space-x-4">
+    <div className="flex items-center space-x-4">
         {/* Play/Pause Button */}
         <button
           onClick={isPlaying ? handlePause : handlePlay}
@@ -175,7 +229,6 @@ const AudioPlayer = ({ text, speechText, isSimplified }) => {
           </select>
         </div>
       </div>
-    </div>
   )
 }
 

@@ -4,6 +4,36 @@ import { formatTextForDisplay } from '../utils/textFormatter'
 
 const ResultsPage = ({ processedText, onBack }) => {
   const [activeTab, setActiveTab] = useState('simplified')
+  const [currentWordIndex, setCurrentWordIndex] = useState(-1)
+
+  // Function to render text with word highlighting
+  const renderTextWithHighlight = (text) => {
+    if (!text) return null
+    
+    // Split text preserving spaces and get word positions
+    const parts = text.split(/(\s+)/)
+    let wordCount = 0
+    
+    return parts.map((part, index) => {
+      const isSpace = /^\s+$/.test(part)
+      
+      if (isSpace) {
+        return <span key={index}>{part}</span>
+      }
+      
+      const isCurrentWord = wordCount === currentWordIndex
+      wordCount++
+      
+      return (
+        <span
+          key={index}
+          className={`transition-colors duration-200 ${isCurrentWord ? 'bg-yellow-300 px-1 rounded shadow-sm' : ''}`}
+        >
+          {part}
+        </span>
+      )
+    })
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -44,32 +74,8 @@ const ResultsPage = ({ processedText, onBack }) => {
       {/* Main Content */}
       <main className="px-6 py-8">
         <div className="max-w-7xl mx-auto">
-          {/* Tab Navigation */}
-          <div className="flex space-x-1 mb-8 bg-gray-100 rounded-lg p-1 max-w-md">
-            <button
-              onClick={() => setActiveTab('original')}
-              className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                activeTab === 'original'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Original
-            </button>
-            <button
-              onClick={() => setActiveTab('simplified')}
-              className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                activeTab === 'simplified'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Simplified
-            </button>
-          </div>
-
           {/* Content Grid */}
-          <div className="grid lg:grid-cols-2 gap-8">
+          <div className="grid lg:grid-cols-2 gap-8 mb-8">
             {/* Original Text */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200">
               <div className="px-6 py-4 border-b border-gray-200">
@@ -88,9 +94,12 @@ const ResultsPage = ({ processedText, onBack }) => {
                 </div>
               </div>
               <div className="p-6">
-                <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                  {formatTextForDisplay(processedText?.original || '')}
-                </p>
+                <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                  {activeTab === 'original' ? 
+                    renderTextWithHighlight(formatTextForDisplay(processedText?.original || '')) :
+                    formatTextForDisplay(processedText?.original || '')
+                  }
+                </div>
               </div>
             </div>
 
@@ -112,9 +121,12 @@ const ResultsPage = ({ processedText, onBack }) => {
                 </div>
               </div>
               <div className="p-6">
-                <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                  {formatTextForDisplay(processedText?.simplified || '')}
-                </p>
+                <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                  {activeTab === 'simplified' ? 
+                    renderTextWithHighlight(formatTextForDisplay(processedText?.simplified || '')) :
+                    formatTextForDisplay(processedText?.simplified || '')
+                  }
+                </div>
               </div>
             </div>
           </div>
@@ -146,16 +158,49 @@ const ResultsPage = ({ processedText, onBack }) => {
             </div>
           )}
 
-          {/* Audio Player */}
-          <div className="mt-8">
-            <AudioPlayer 
-              text={activeTab === 'simplified' 
-                ? formatTextForDisplay(processedText?.simplified || '') 
-                : formatTextForDisplay(processedText?.original || '')
-              }
-              speechText={activeTab === 'simplified' ? processedText?.speechText : null}
-              isSimplified={activeTab === 'simplified'}
-            />
+          {/* Audio Player Section */}
+          <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">Audio Player</h2>
+                
+                {/* Tab Navigation - moved here to be above voice options */}
+                <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setActiveTab('original')}
+                    className={`px-4 py-2 rounded-md font-medium transition-colors text-sm ${
+                      activeTab === 'original'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Original
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('simplified')}
+                    className={`px-4 py-2 rounded-md font-medium transition-colors text-sm ${
+                      activeTab === 'simplified'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Simplified
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <AudioPlayer 
+                text={activeTab === 'simplified' 
+                  ? formatTextForDisplay(processedText?.simplified || '') 
+                  : formatTextForDisplay(processedText?.original || '')
+                }
+                speechText={activeTab === 'simplified' ? processedText?.speechText : null}
+                isSimplified={activeTab === 'simplified'}
+                onWordChange={setCurrentWordIndex}
+              />
+            </div>
           </div>
         </div>
       </main>
