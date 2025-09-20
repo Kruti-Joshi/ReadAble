@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import AudioPlayer from './AudioPlayer'
 import AccessibilityPanel from './AccessibilityPanel'
 import { formatTextForDisplay } from '../utils/textFormatter'
@@ -10,18 +10,16 @@ import {
 } from '../utils/accessibilityHelper'
 
 const ResultsPage = ({ processedText, onBack }) => {
-  const [activeTab, setActiveTab] = useState('simplified')
   const [currentWordIndex, setCurrentWordIndex] = useState(-1)
   const [accessibilityPanelOpen, setAccessibilityPanelOpen] = useState(false)
   const [accessibilitySettings, setAccessibilitySettings] = useState(getAccessibilitySettings())
   const [copied, setCopied] = useState(false)
+  const wordElementsRef = useRef({})
 
   // Handler functions
   const handleCopy = async () => {
     try {
-      const textToCopy = activeTab === 'original' 
-        ? processedText?.original || '' 
-        : processedText?.simplified || ''
+      const textToCopy = processedText?.simplified || ''
       
       await navigator.clipboard.writeText(textToCopy)
       setCopied(true)
@@ -35,15 +33,13 @@ const ResultsPage = ({ processedText, onBack }) => {
 
   const handleDownload = () => {
     try {
-      const textToDownload = activeTab === 'original' 
-        ? processedText?.original || '' 
-        : processedText?.simplified || ''
+      const textToDownload = processedText?.simplified || ''
       
       const blob = new Blob([textToDownload], { type: 'text/plain' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `readable-${activeTab}-text.txt`
+      a.download = `readable-simplified-text.txt`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -53,11 +49,31 @@ const ResultsPage = ({ processedText, onBack }) => {
     }
   }
 
+  const handleWordHighlight = useCallback((wordIndex) => {
+    console.log('Word highlight received:', wordIndex)
+    setCurrentWordIndex(wordIndex)
+  }, [])
+
   // Apply accessibility settings when they change
   useEffect(() => {
     const theme = getThemeColors()
     document.body.style.backgroundColor = theme.bgColor
   }, [accessibilitySettings])
+
+  // Auto-scroll to current word
+  useEffect(() => {
+    if (currentWordIndex >= 0 && wordElementsRef.current[currentWordIndex]) {
+      const element = wordElementsRef.current[currentWordIndex]
+      console.log(`Scrolling to word ${currentWordIndex}:`, element.textContent)
+      element.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'nearest'
+      })
+    } else if (currentWordIndex >= 0) {
+      console.log(`Word element ${currentWordIndex} not found yet`)
+    }
+  }, [currentWordIndex])
 
   // Function to render text with word highlighting and accessibility features
   const renderTextWithHighlight = (text) => {
@@ -68,9 +84,14 @@ const ResultsPage = ({ processedText, onBack }) => {
     // Apply readability formatting
     displayText = formatTextForReadability(displayText, accessibilitySettings)
     
+    // Clear previous word elements when re-rendering
+    wordElementsRef.current = {}
+    
     // Split text preserving spaces and get word positions
     const parts = displayText.split(/(\s+)/)
     let wordCount = 0
+    
+    console.log('Rendering text with', parts.filter(part => !/^\s+$/.test(part)).length, 'words')
     
     return parts.map((part, index) => {
       const isSpace = /^\s+$/.test(part)
@@ -81,11 +102,20 @@ const ResultsPage = ({ processedText, onBack }) => {
       
       // Always enable highlighting (no longer a setting)
       const isCurrentWord = wordCount === currentWordIndex
+      const currentWordCount = wordCount
       wordCount++
       
       return (
         <span
           key={index}
+          ref={(el) => {
+            if (el) {
+              wordElementsRef.current[currentWordCount] = el
+              if (currentWordCount === 0) {
+                console.log('First word element set:', el.textContent)
+              }
+            }
+          }}
           className={`transition-all duration-200 ${
             isCurrentWord ? 'bg-yellow-300 px-1 rounded-md shadow-sm font-semibold transform scale-105' : ''
           }`}
@@ -154,189 +184,124 @@ const ResultsPage = ({ processedText, onBack }) => {
       </header>
 
       {/* Main Content */}
-      <main className="px-6 py-8">
-        <div className="max-w-7xl mx-auto space-y-8">
-          {/* Actions and Controls */}
-          <section className={`${theme.bg} rounded-lg p-6 border shadow-sm`}>
-            <div className="flex flex-wrap gap-4 items-center justify-between">
-              <div className="flex flex-wrap gap-3">
-                <button 
-                  onClick={handleCopy}
-                  className={`${getButtonClass()} border-2 border-green-200`}
-                >
-                  {copied ? 'Copied!' : 'Copy Text'}
-                </button>
-                <button 
-                  onClick={handleDownload}
-                  className={`${getButtonClass()} border-2 border-blue-200`}
-                >
-                  Download TXT
-                </button>
-                <button 
-                  onClick={onBack}
-                  className={`${getButtonClass()} border-2 border-purple-200`}
-                >
-                  Upload New File
-                </button>
-              </div>
-              
-              <div className="flex items-center space-x-4">
-                <span className={`text-sm ${theme.textSecondary}`}>
-                  Original: {(processedText?.original || '').length} chars | 
-                  Simplified: {(processedText?.simplified || '').length} chars
-                </span>
-                <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  (processedText?.original || '').length > (processedText?.simplified || '').length 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {(processedText?.original || '').length > (processedText?.simplified || '').length ? 'Simplified' : 'Enhanced'}
+      <main className="flex flex-col h-screen pt-20">
+        {/* Fixed Audio Player */}
+        <div className="fixed top-20 left-0 right-0 z-40 bg-white border-b shadow-sm">
+          <div className="max-w-7xl mx-auto px-6 py-4">
+            {/* Actions and Controls */}
+            <section className="mb-4">
+              <div className="flex flex-wrap gap-4 items-center justify-between">
+                <div className="flex flex-wrap gap-3">
+                  <button 
+                    onClick={handleCopy}
+                    className={`${getButtonClass()} border-2 border-green-200`}
+                  >
+                    {copied ? 'Copied!' : 'Copy Text'}
+                  </button>
+                  <button 
+                    onClick={handleDownload}
+                    className={`${getButtonClass()} border-2 border-blue-200`}
+                  >
+                    Download TXT
+                  </button>
+                  <button 
+                    onClick={onBack}
+                    className={`${getButtonClass()} border-2 border-purple-200`}
+                  >
+                    Upload New File
+                  </button>
                 </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Content Grid */}
-          <div className="grid lg:grid-cols-2 gap-8">
-            {/* Original Text */}
-            <div className={`${theme.bg} rounded-lg shadow-sm border`}>
-              <div className={`px-6 py-4 border-b ${theme.border}`}>
-                <div className="flex items-center justify-between">
-                  <h2 className={`text-lg font-semibold ${theme.text}`}>Original Text</h2>
-                  <div className="flex items-center space-x-2">
-                    {processedText?.processingStats && (
-                      <span className={`text-sm px-2 py-1 rounded ${theme.bgSecondary} ${theme.textSecondary}`}>
-                        {processedText.processingStats.wordCount} words
-                      </span>
-                    )}
-                    <span className={`text-sm px-2 py-1 rounded ${theme.bgSecondary} ${theme.textSecondary}`}>
-                      Complex
-                    </span>
+                
+                <div className="flex items-center space-x-4">
+                  <span className={`text-sm ${theme.textSecondary}`}>
+                    Simplified: {(processedText?.simplified || '').length} characters
+                  </span>
+                  <div className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                    Simplified Document
                   </div>
                 </div>
               </div>
-              <div className="p-6">
-                <div 
-                  className={`${theme.text} leading-relaxed whitespace-pre-wrap`}
-                  style={{
-                    fontSize: textStyles.fontSize,
-                    lineHeight: textStyles.lineHeight,
-                    fontFamily: textStyles.fontFamily,
-                    letterSpacing: textStyles.letterSpacing
-                  }}
-                >
-                  {activeTab === 'original' ? 
-                    renderTextWithHighlight(formatTextForReadability(processedText?.original || '', accessibilitySettings)) :
-                    formatTextForReadability(processedText?.original || '', accessibilitySettings)
-                  }
-                </div>
-              </div>
-            </div>
+            </section>
 
-            {/* Simplified Text */}
-            <div className={`${theme.bg} rounded-lg shadow-sm border`}>
-              <div className={`px-6 py-4 border-b ${theme.border}`}>
-                <div className="flex items-center justify-between">
-                  <h2 className={`text-lg font-semibold ${theme.text}`}>Simplified Text</h2>
-                  <div className="flex items-center space-x-2">
-                    {processedText?.processingStats && (
-                      <span className="text-sm text-blue-700 bg-blue-100 px-2 py-1 rounded">
-                        {processedText.processingStats.totalChunks} chunks processed
-                      </span>
-                    )}
-                    <span className="text-sm text-green-700 bg-green-100 px-2 py-1 rounded">
-                      Simple
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="p-6">
-                <div 
-                  className={`${theme.text} leading-relaxed whitespace-pre-wrap`}
-                  style={{
-                    fontSize: textStyles.fontSize,
-                    lineHeight: textStyles.lineHeight,
-                    fontFamily: textStyles.fontFamily,
-                    letterSpacing: textStyles.letterSpacing
-                  }}
-                >
-                  {activeTab === 'simplified' ? 
-                    renderTextWithHighlight(formatTextForReadability(processedText?.simplified || '', accessibilitySettings)) :
-                    formatTextForReadability(processedText?.simplified || '', accessibilitySettings)
-                  }
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Tab Navigation and Audio Controls */}
-          <div className="flex flex-col md:flex-row gap-6 items-center justify-between">
-            {/* Tab Navigation */}
-            <div className="flex space-x-4">
-              <button 
-                onClick={() => setActiveTab('original')}
-                className={`${getButtonClass()} ${
-                  activeTab === 'original' 
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-lg' 
-                    : 'border-2 border-blue-200'
-                }`}
-              >
-                Original Text
-              </button>
-              <button 
-                onClick={() => setActiveTab('simplified')}
-                className={`${getButtonClass()} ${
-                  activeTab === 'simplified' 
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-lg' 
-                    : 'border-2 border-blue-200'
-                }`}
-              >
-                Simplified Text
-              </button>
-            </div>
-            
             {/* Audio Player */}
-            <div className="flex-shrink-0">
+            <div className="flex justify-center">
               <AudioPlayer
-                text={activeTab === 'original' ? processedText?.original || '' : processedText?.simplified || ''}
-                onWordHighlight={setCurrentWordIndex}
+                text={processedText?.simplified || ''}
+                onWordHighlight={handleWordHighlight}
                 accessibilitySettings={accessibilitySettings}
               />
             </div>
           </div>
+        </div>
 
-          {/* Processing Statistics */}
-          {processedText?.processingStats && (
-            <div className={`${theme.bg} rounded-lg p-6 border shadow-sm`}>
-              <h3 className={`text-lg font-medium ${theme.text} mb-4`}>Processing Summary</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-                <div className={`p-4 rounded-lg ${theme.bgSecondary}`}>
-                  <span className={`${theme.text} font-medium block`}>Total Chunks:</span>
-                  <span className={`${theme.textSecondary} text-lg font-semibold`}>
-                    {processedText.processingStats.totalChunks}
-                  </span>
-                </div>
-                <div className={`p-4 rounded-lg ${theme.bgSecondary}`}>
-                  <span className={`${theme.text} font-medium block`}>Successfully Processed:</span>
-                  <span className={`${theme.textSecondary} text-lg font-semibold`}>
-                    {processedText.processingStats.successfulChunks}
-                  </span>
-                </div>
-                <div className={`p-4 rounded-lg ${theme.bgSecondary}`}>
-                  <span className={`${theme.text} font-medium block`}>Word Count:</span>
-                  <span className={`${theme.textSecondary} text-lg font-semibold`}>
-                    {processedText.processingStats.wordCount.toLocaleString()}
-                  </span>
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto pt-32 pb-8">
+          <div className="max-w-4xl mx-auto px-6">
+            {/* Simplified Text Content */}
+            <div className={`${theme.bg} rounded-lg shadow-sm border`}>
+              <div className={`px-6 py-4 border-b ${theme.border}`}>
+                <div className="flex items-center justify-between">
+                  <h2 className={`text-xl font-semibold ${theme.text}`}>Simplified Document</h2>
+                  <div className="flex items-center space-x-2">
+                    {processedText?.processingStats && (
+                      <span className="text-sm text-blue-700 bg-blue-100 px-3 py-1 rounded-full">
+                        {processedText.processingStats.totalChunks} sections processed
+                      </span>
+                    )}
+                    <span className="text-sm text-green-700 bg-green-100 px-3 py-1 rounded-full">
+                      Easy to Read
+                    </span>
+                  </div>
                 </div>
               </div>
-              {processedText.processingStats.errors && processedText.processingStats.errors.length > 0 && (
-                <div className="mt-4 p-4 bg-red-50 rounded-lg border border-red-200">
-                  <span className="text-red-700 font-medium text-sm">Processing Errors:</span>
-                  <span className="text-red-600 ml-2 text-sm">{processedText.processingStats.errors.length} chunks had errors</span>
+              <div className="p-8">
+                <div 
+                  className={`${theme.text} leading-relaxed whitespace-pre-wrap`}
+                  style={{
+                    fontSize: textStyles.fontSize,
+                    lineHeight: textStyles.lineHeight,
+                    fontFamily: textStyles.fontFamily,
+                    letterSpacing: textStyles.letterSpacing
+                  }}
+                >
+                  {renderTextWithHighlight(formatTextForReadability(processedText?.simplified || '', accessibilitySettings))}
                 </div>
-              )}
+              </div>
             </div>
-          )}
+
+            {/* Processing Statistics */}
+            {processedText?.processingStats && (
+              <div className={`${theme.bg} rounded-lg p-6 border shadow-sm mt-8`}>
+                <h3 className={`text-lg font-medium ${theme.text} mb-4`}>Processing Summary</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                  <div className={`p-4 rounded-lg ${theme.bgSecondary}`}>
+                    <span className={`${theme.text} font-medium block`}>Total Chunks:</span>
+                    <span className={`${theme.textSecondary} text-lg font-semibold`}>
+                      {processedText.processingStats.totalChunks}
+                    </span>
+                  </div>
+                  <div className={`p-4 rounded-lg ${theme.bgSecondary}`}>
+                    <span className={`${theme.text} font-medium block`}>Successfully Processed:</span>
+                    <span className={`${theme.textSecondary} text-lg font-semibold`}>
+                      {processedText.processingStats.successfulChunks}
+                    </span>
+                  </div>
+                  <div className={`p-4 rounded-lg ${theme.bgSecondary}`}>
+                    <span className={`${theme.text} font-medium block`}>Word Count:</span>
+                    <span className={`${theme.textSecondary} text-lg font-semibold`}>
+                      {processedText.processingStats.wordCount.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+                {processedText.processingStats.errors && processedText.processingStats.errors.length > 0 && (
+                  <div className="mt-4 p-4 bg-red-50 rounded-lg border border-red-200">
+                    <span className="text-red-700 font-medium text-sm">Processing Errors:</span>
+                    <span className="text-red-600 ml-2 text-sm">{processedText.processingStats.errors.length} chunks had errors</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </main>
 
