@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 
-const AudioPlayer = ({ text, isSimplified }) => {
+const AudioPlayer = ({ text, speechText, isSimplified }) => {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -10,11 +10,13 @@ const AudioPlayer = ({ text, isSimplified }) => {
   const speechRef = useRef(null)
   const intervalRef = useRef(null)
 
-  const estimatedDuration = text ? Math.max(text.length / 10, 3) : 30 // Rough estimate
+  // Use speechText if available, otherwise fall back to regular text
+  const textToSpeak = speechText || text
+  const estimatedDuration = textToSpeak ? Math.max(textToSpeak.length / 10, 3) : 30 // Rough estimate
 
   useEffect(() => {
     setDuration(estimatedDuration)
-  }, [text, estimatedDuration])
+  }, [textToSpeak, estimatedDuration])
 
   const handlePlay = () => {
     if ('speechSynthesis' in window) {
@@ -26,7 +28,7 @@ const AudioPlayer = ({ text, isSimplified }) => {
         startTimer()
       } else {
         // Start new speech
-        const utterance = new SpeechSynthesisUtterance(text)
+        const utterance = new SpeechSynthesisUtterance(textToSpeak)
         utterance.rate = playbackRate
         utterance.onend = () => {
           setIsPlaying(false)

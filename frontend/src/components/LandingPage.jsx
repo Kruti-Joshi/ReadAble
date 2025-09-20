@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import FileUpload from './FileUpload'
 
-const LandingPage = ({ onFileUpload }) => {
+const LandingPage = ({ onFileUpload, isProcessing, processingProgress, processingError }) => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       {/* Header */}
@@ -37,7 +37,41 @@ const LandingPage = ({ onFileUpload }) => {
             </p>
 
             {/* File Upload Area */}
-            <FileUpload onFileUpload={onFileUpload} />
+            <FileUpload onFileUpload={onFileUpload} disabled={isProcessing} />
+
+            {/* Processing Status */}
+            {isProcessing && processingProgress && (
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="text-blue-800 font-medium mb-2">
+                  {processingProgress.message}
+                </div>
+                {processingProgress.progress && (
+                  <div className="w-full bg-blue-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${processingProgress.progress}%` }}
+                    ></div>
+                  </div>
+                )}
+                {processingProgress.currentChunk && processingProgress.totalChunks && (
+                  <div className="text-sm text-blue-600 mt-2">
+                    Processing chunk {processingProgress.currentChunk} of {processingProgress.totalChunks}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Error Display */}
+            {processingError && (
+              <div className="mt-6 p-4 bg-red-50 rounded-lg border border-red-200">
+                <div className="text-red-800 font-medium">
+                  Error processing file
+                </div>
+                <div className="text-red-600 text-sm mt-1">
+                  {processingError}
+                </div>
+              </div>
+            )}
 
             <p className="text-sm text-gray-500 mt-4">
               No Sign-in. No storage. Private.

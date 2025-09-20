@@ -8,6 +8,18 @@ using ReadAble.Backend.Services;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWorkerDefaults()
+    .ConfigureAppConfiguration((context, config) =>
+    {
+        // Explicitly load appsettings.json
+        config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+        
+        // Add environment-specific appsettings if they exist
+        var env = context.HostingEnvironment.EnvironmentName;
+        config.AddJsonFile($"appsettings.{env}.json", optional: true, reloadOnChange: true);
+        
+        // Add environment variables (this includes local.settings.json values)
+        config.AddEnvironmentVariables();
+    })
     .ConfigureServices((context, services) =>
     {
         services.AddApplicationInsightsTelemetryWorkerService();
@@ -31,18 +43,20 @@ var host = new HostBuilder()
         // Check if appsettings.json ReadAble section exists
         var readableSection = context.Configuration.GetSection("ReadAble");
         logger.LogInformation("ReadAble section exists: {Exists}", readableSection.Exists());
-        
+
         if (readableSection.Exists())
         {
             var systemPrompt = readableSection["SystemPrompt"];
-            logger.LogInformation("ReadAble SystemPrompt from appsettings.json length: {Length}", 
+            logger.LogInformation("ReadAble SystemPrompt from appsettings.json length: {Length}",
                 string.IsNullOrEmpty(systemPrompt) ? 0 : systemPrompt.Length);
         }
-        
-        // Check environment variable fallback
-        var envSystemPrompt = context.Configuration["READABLE_SYSTEM_PROMPT"];
-        logger.LogInformation("READABLE_SYSTEM_PROMPT from env/local.settings.json length: {Length}",
-            string.IsNullOrEmpty(envSystemPrompt) ? 0 : envSystemPrompt.Length);
+        else
+        {
+            // Check environment variable fallback
+            var envSystemPrompt = context.Configuration["READABLE_SYSTEM_PROMPT"];
+            logger.LogInformation("READABLE_SYSTEM_PROMPT from env/local.settings.json length: {Length}",
+                string.IsNullOrEmpty(envSystemPrompt) ? 0 : envSystemPrompt.Length);
+        }
         
         logger.LogInformation("=== End Configuration Debug ===");
         

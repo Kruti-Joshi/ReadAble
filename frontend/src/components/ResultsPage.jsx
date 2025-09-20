@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import AudioPlayer from './AudioPlayer'
+import { formatTextForDisplay } from '../utils/textFormatter'
 
 const ResultsPage = ({ processedText, onBack }) => {
   const [activeTab, setActiveTab] = useState('simplified')
@@ -74,14 +75,21 @@ const ResultsPage = ({ processedText, onBack }) => {
               <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-gray-900">Original Text</h2>
-                  <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                    Reading level: A2
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    {processedText?.processingStats && (
+                      <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                        {processedText.processingStats.wordCount} words
+                      </span>
+                    )}
+                    <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                      Complex
+                    </span>
+                  </div>
                 </div>
               </div>
               <div className="p-6">
-                <p className="text-gray-700 leading-relaxed">
-                  {processedText?.original}
+                <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                  {formatTextForDisplay(processedText?.original || '')}
                 </p>
               </div>
             </div>
@@ -91,23 +99,61 @@ const ResultsPage = ({ processedText, onBack }) => {
               <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-gray-900">Simplified Text</h2>
-                  <span className="text-sm text-gray-500 bg-green-100 px-2 py-1 rounded text-green-700">
-                    Reading level: A2
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    {processedText?.processingStats && (
+                      <span className="text-sm text-gray-500 bg-blue-100 px-2 py-1 rounded text-blue-700">
+                        {processedText.processingStats.totalChunks} chunks processed
+                      </span>
+                    )}
+                    <span className="text-sm text-gray-500 bg-green-100 px-2 py-1 rounded text-green-700">
+                      Simple
+                    </span>
+                  </div>
                 </div>
               </div>
               <div className="p-6">
-                <p className="text-gray-700 leading-relaxed">
-                  {processedText?.simplified}
+                <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                  {formatTextForDisplay(processedText?.simplified || '')}
                 </p>
               </div>
             </div>
           </div>
 
+          {/* Processing Statistics */}
+          {processedText?.processingStats && (
+            <div className="mt-6 bg-blue-50 rounded-lg p-4 border border-blue-200">
+              <h3 className="text-sm font-medium text-blue-900 mb-2">Processing Summary</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="text-blue-700 font-medium">Total Chunks:</span>
+                  <span className="text-blue-600 ml-2">{processedText.processingStats.totalChunks}</span>
+                </div>
+                <div>
+                  <span className="text-blue-700 font-medium">Successfully Processed:</span>
+                  <span className="text-blue-600 ml-2">{processedText.processingStats.successfulChunks}</span>
+                </div>
+                <div>
+                  <span className="text-blue-700 font-medium">Word Count:</span>
+                  <span className="text-blue-600 ml-2">{processedText.processingStats.wordCount.toLocaleString()}</span>
+                </div>
+              </div>
+              {processedText.processingStats.errors && processedText.processingStats.errors.length > 0 && (
+                <div className="mt-3">
+                  <span className="text-red-700 font-medium text-sm">Processing Errors:</span>
+                  <span className="text-red-600 ml-2 text-sm">{processedText.processingStats.errors.length} chunks had errors</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Audio Player */}
           <div className="mt-8">
             <AudioPlayer 
-              text={activeTab === 'simplified' ? processedText?.simplified : processedText?.original}
+              text={activeTab === 'simplified' 
+                ? formatTextForDisplay(processedText?.simplified || '') 
+                : formatTextForDisplay(processedText?.original || '')
+              }
+              speechText={activeTab === 'simplified' ? processedText?.speechText : null}
               isSimplified={activeTab === 'simplified'}
             />
           </div>
