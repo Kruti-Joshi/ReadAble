@@ -6,7 +6,9 @@ const AudioPlayer = ({ text, speechText, isSimplified, onWordChange, onWordHighl
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [playbackRate, setPlaybackRate] = useState(accessibilitySettings.slowSpeech ? 0.8 : 1.0)
-  const [voice, setVoice] = useState('Neutral')
+  const [selectedVoice, setSelectedVoice] = useState(null)
+  const [availableVoices, setAvailableVoices] = useState([])
+  const [voiceType, setVoiceType] = useState('female') // 'male', 'female'
   const speechRef = useRef(null)
   const intervalRef = useRef(null)
   const currentTimeRef = useRef(0)
@@ -30,6 +32,61 @@ const AudioPlayer = ({ text, speechText, isSimplified, onWordChange, onWordHighl
   useEffect(() => {
     setDuration(estimatedDuration)
   }, [textToSpeak, estimatedDuration])
+
+  // Load available voices and set up voice mapping
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices()
+      setAvailableVoices(voices)
+      
+      // Set default voice based on current voice type
+      updateVoiceSelection(voiceType, voices)
+    }
+
+    // Load voices immediately if available
+    loadVoices()
+    
+    // Some browsers load voices asynchronously
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = loadVoices
+    }
+  }, [])
+
+  // Update voice selection when voice type changes
+  useEffect(() => {
+    if (availableVoices.length > 0) {
+      updateVoiceSelection(voiceType, availableVoices)
+    }
+  }, [voiceType, availableVoices])
+
+  const updateVoiceSelection = (type, voices) => {
+    let targetVoice = null
+    
+    switch (type) {
+      case 'male':
+        // Look for Microsoft Mark
+        targetVoice = voices.find(voice => 
+          voice.name.toLowerCase().includes('mark') && 
+          voice.name.toLowerCase().includes('microsoft')
+        )
+        break
+      case 'female':
+        // Look for Microsoft Libby
+        targetVoice = voices.find(voice => 
+          voice.name.toLowerCase().includes('libby') && 
+          voice.name.toLowerCase().includes('microsoft')
+        )
+        break
+    }
+    
+    // Fallback to default if specific voice not found
+    if (!targetVoice && voices.length > 0) {
+      const englishVoices = voices.filter(voice => voice.lang.startsWith('en'))
+      targetVoice = englishVoices.length > 0 ? englishVoices[0] : voices[0]
+    }
+    
+    setSelectedVoice(targetVoice)
+  }
 
   // Update playback rate when accessibility settings change
   useEffect(() => {
@@ -89,6 +146,13 @@ const AudioPlayer = ({ text, speechText, isSimplified, onWordChange, onWordHighl
         // Start new speech
         const utterance = new SpeechSynthesisUtterance(textToSpeak)
         utterance.rate = playbackRate
+        utterance.pitch = 1.0
+        utterance.volume = 1.0
+        
+        // Apply selected voice
+        if (selectedVoice) {
+          utterance.voice = selectedVoice
+        }
         
         // Set up word tracking before other events
         startWordTracking(utterance)
@@ -98,6 +162,14 @@ const AudioPlayer = ({ text, speechText, isSimplified, onWordChange, onWordHighl
           setIsPaused(false)
           setCurrentTime(0)
           currentTimeRef.current = 0 // Reset ref
+          clearInterval(intervalRef.current)
+          stopWordTracking()
+        }
+
+        utterance.onerror = (event) => {
+          console.error('Speech synthesis error:', event.error)
+          setIsPlaying(false)
+          setIsPaused(false)
           clearInterval(intervalRef.current)
           stopWordTracking()
         }
@@ -131,6 +203,32 @@ const AudioPlayer = ({ text, speechText, isSimplified, onWordChange, onWordHighl
       currentTimeRef.current = 0 // Reset ref
       clearInterval(intervalRef.current)
       stopWordTracking()
+    }
+  }
+
+  const handleSpeedChange = (newRate) => {
+    setPlaybackRate(newRate)
+    
+    // If currently playing, restart with new speed
+    if (isPlaying && !isPaused) {
+      handleStop()
+      // Small delay to ensure speech is stopped before restarting
+      setTimeout(() => {
+        handlePlay()
+      }, 100)
+    }
+  }
+
+  const handleVoiceTypeChange = (newType) => {
+    setVoiceType(newType)
+    
+    // If currently playing, restart with new voice
+    if (isPlaying && !isPaused) {
+      handleStop()
+      // Small delay to ensure speech is stopped before restarting
+      setTimeout(() => {
+        handlePlay()
+      }, 100)
     }
   }
 
@@ -225,8 +323,8 @@ const AudioPlayer = ({ text, speechText, isSimplified, onWordChange, onWordHighl
           <label className="text-sm text-gray-600">Speed</label>
           <select 
             value={playbackRate}
-            onChange={(e) => setPlaybackRate(parseFloat(e.target.value))}
-            className="text-sm border border-gray-300 rounded px-2 py-1"
+            onChange={(e) => handleSpeedChange(parseFloat(e.target.value))}
+            className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-purple-300"
           >
             <option value={0.5}>0.5x</option>
             <option value={0.75}>0.75x</option>
@@ -241,13 +339,12 @@ const AudioPlayer = ({ text, speechText, isSimplified, onWordChange, onWordHighl
         <div className="flex items-center space-x-2">
           <label className="text-sm text-gray-600">Voice</label>
           <select 
-            value={voice}
-            onChange={(e) => setVoice(e.target.value)}
-            className="text-sm border border-gray-300 rounded px-2 py-1"
+            value={voiceType}
+            onChange={(e) => handleVoiceTypeChange(e.target.value)}
+            className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-purple-300"
           >
-            <option value="Neutral">Neutral</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
           </select>
         </div>
       </div>
