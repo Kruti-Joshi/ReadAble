@@ -34,17 +34,8 @@ public class SummarizeDocumentRequest
 /// </summary>
 public class SummarizationOptions
 {
-    /// <summary>
-    /// Target reading level
-    /// </summary>
-    [JsonPropertyName("readingLevel")]
-    public string ReadingLevel { get; set; } = "grade6";
-
-    /// <summary>
-    /// Summary length preference
-    /// </summary>
-    [JsonPropertyName("length")]
-    public string Length { get; set; } = "medium";
+    // Empty options class - using default accessibility settings
+    // All configuration is handled through the ReadAble system prompt
 }
 
 /// <summary>

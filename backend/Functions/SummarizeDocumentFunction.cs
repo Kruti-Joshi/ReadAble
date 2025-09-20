@@ -84,9 +84,7 @@ public class SummarizeDocumentFunction
                 Summary = new ProcessingSummary
                 {
                     TotalChunks = requestBody.Chunks.Count,
-                    TotalTokensEstimate = requestBody.Chunks.Sum(c => c.TokenEstimate),
-                    ReadingLevel = requestBody.Options?.ReadingLevel ?? "grade6",
-                    Length = requestBody.Options?.Length ?? "medium"
+                    TotalTokensEstimate = requestBody.Chunks.Sum(c => c.TokenEstimate)
                 },
                 Chunks = processedChunks
             };
@@ -145,20 +143,8 @@ public class SummarizeDocumentFunction
 
         if (request.Options != null)
         {
-            var validReadingLevels = new[] { "grade3", "grade6", "grade9", "college" };
-            var validLengths = new[] { "short", "medium", "long" };
-
-            if (!string.IsNullOrWhiteSpace(request.Options.ReadingLevel) && 
-                !validReadingLevels.Contains(request.Options.ReadingLevel, StringComparer.OrdinalIgnoreCase))
-            {
-                errors.Add($"Options.ReadingLevel must be one of: {string.Join(", ", validReadingLevels)}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(request.Options.Length) && 
-                !validLengths.Contains(request.Options.Length, StringComparer.OrdinalIgnoreCase))
-            {
-                errors.Add($"Options.Length must be one of: {string.Join(", ", validLengths)}");
-            }
+            // Options validation can be added here if needed in the future
+            // Currently using simple accessibility configuration
         }
 
         return errors;
@@ -193,7 +179,7 @@ public class SummarizeDocumentFunction
                     OriginalText = chunk.Text,
                     SimplifiedText = simplifiedText,
                     SimplificationRatio = (double)simplifiedText.Length / chunk.Text.Length,
-                    ReadingLevel = options.ReadingLevel ?? "grade6",
+                    ReadingLevel = "accessible", // Fixed reading level for accessibility
                     ProcessedAt = DateTime.UtcNow
                 });
             }

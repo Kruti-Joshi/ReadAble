@@ -84,29 +84,6 @@ var host = new HostBuilder()
             if (!string.IsNullOrEmpty(envSystemPrompt))
             {
                 options.SystemPrompt = envSystemPrompt;
-                
-                // Add default reading levels if not configured
-                if (!options.ReadingLevels.Any())
-                {
-                    options.ReadingLevels = new Dictionary<string, ReadingLevelConfig>
-                    {
-                        ["grade3"] = new() { MaxWordsPerSentence = 12, VocabularyLevel = "elementary", Description = "Very simple language for early readers" },
-                        ["grade6"] = new() { MaxWordsPerSentence = 15, VocabularyLevel = "intermediate", Description = "Clear, accessible language for middle school level" },
-                        ["grade9"] = new() { MaxWordsPerSentence = 18, VocabularyLevel = "advanced", Description = "Structured language for high school level" },
-                        ["college"] = new() { MaxWordsPerSentence = 22, VocabularyLevel = "academic", Description = "Clear academic language with minimal jargon" }
-                    };
-                }
-                
-                // Add default length options if not configured
-                if (!options.LengthOptions.Any())
-                {
-                    options.LengthOptions = new Dictionary<string, LengthConfig>
-                    {
-                        ["short"] = new() { CompressionRatio = 0.65, Description = "Concise summary focusing on key points" },
-                        ["medium"] = new() { CompressionRatio = 1.0, Description = "Complete simplification maintaining all information" },
-                        ["long"] = new() { CompressionRatio = 1.3, Description = "Detailed explanation with examples and context" }
-                    };
-                }
             }
         });
         

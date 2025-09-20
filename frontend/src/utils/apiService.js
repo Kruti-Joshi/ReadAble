@@ -10,15 +10,10 @@ const API_BASE_URL = 'http://localhost:7071/api'; // Azure Functions local devel
  * Summarizes document chunks using the ReadAble Azure Functions API
  * @param {string} docId - Document identifier
  * @param {Array<Object>} chunks - Array of document chunks
- * @param {Object} options - Summarization options
+ * @param {Object} options - Summarization options (optional, kept for backward compatibility)
  * @returns {Promise<Object>} - API response with processed chunks
  */
 export async function summarizeDocument(docId, chunks, options = {}) {
-  const {
-    readingLevel = 'grade6',
-    length = 'medium'
-  } = options;
-
   // Convert our chunk format to the backend's expected format
   const requestChunks = chunks.map((chunk, index) => ({
     id: `chunk_${index}`,
@@ -31,10 +26,7 @@ export async function summarizeDocument(docId, chunks, options = {}) {
 
   const requestBody = {
     docId: docId,
-    options: {
-      readingLevel: readingLevel,
-      length: length
-    },
+    options: {}, // Empty options - all configuration handled by system prompt
     chunks: requestChunks
   };
 

@@ -54,18 +54,6 @@ public class ProcessingSummary
     /// </summary>
     [JsonPropertyName("totalTokensEstimate")]
     public int TotalTokensEstimate { get; set; }
-
-    /// <summary>
-    /// Target reading level used
-    /// </summary>
-    [JsonPropertyName("readingLevel")]
-    public string ReadingLevel { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Summary length used
-    /// </summary>
-    [JsonPropertyName("length")]
-    public string Length { get; set; } = string.Empty;
 }
 
 /// <summary>
