@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 
-const AudioPlayer = ({ text, speechText, isSimplified, onWordChange }) => {
+const AudioPlayer = ({ text, speechText, isSimplified, onWordChange, onWordHighlight, accessibilitySettings = {} }) => {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
-  const [playbackRate, setPlaybackRate] = useState(1.0)
+  const [playbackRate, setPlaybackRate] = useState(accessibilitySettings.slowSpeech ? 0.8 : 1.0)
   const [voice, setVoice] = useState('Neutral')
   const speechRef = useRef(null)
   const intervalRef = useRef(null)
@@ -16,9 +16,25 @@ const AudioPlayer = ({ text, speechText, isSimplified, onWordChange }) => {
   const estimatedDuration = textToSpeak ? Math.max(textToSpeak.length / 10, 3) : 30 // Rough estimate
   const words = textToSpeak ? textToSpeak.split(/\s+/).filter(word => word.length > 0) : []
 
+  // Accessibility-aware button styling
+  const getButtonSize = () => {
+    if (accessibilitySettings.largeClickTargets) return { width: 'w-14 h-14', icon: 'w-7 h-7' }
+    return { width: 'w-12 h-12', icon: 'w-6 h-6' }
+  }
+
+  const getControlButtonSize = () => {
+    if (accessibilitySettings.largeClickTargets) return { width: 'w-12 h-12', icon: 'w-6 h-6' }
+    return { width: 'w-10 h-10', icon: 'w-5 h-5' }
+  }
+
   useEffect(() => {
     setDuration(estimatedDuration)
   }, [textToSpeak, estimatedDuration])
+
+  // Update playback rate when accessibility settings change
+  useEffect(() => {
+    setPlaybackRate(accessibilitySettings.slowSpeech ? 0.8 : 1.0)
+  }, [accessibilitySettings.slowSpeech])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -34,7 +50,7 @@ const AudioPlayer = ({ text, speechText, isSimplified, onWordChange }) => {
 
   // Function to start precise word tracking using speech boundary events
   const startWordTracking = (utterance) => {
-    if (!onWordChange || words.length === 0) return
+    if ((!onWordChange && !onWordHighlight) || words.length === 0) return
     
     // Use the boundary event for precise word tracking
     utterance.onboundary = (event) => {
@@ -46,16 +62,18 @@ const AudioPlayer = ({ text, speechText, isSimplified, onWordChange }) => {
         const currentWordIndex = wordsBeforeCurrent.length
         
         if (currentWordIndex < words.length) {
-          onWordChange(currentWordIndex)
+          // Use both callbacks for backward compatibility
+          if (onWordChange) onWordChange(currentWordIndex)
+          if (onWordHighlight) onWordHighlight(currentWordIndex)
         }
       }
     }
   }
 
   const stopWordTracking = () => {
-    if (onWordChange) {
-      onWordChange(-1) // Reset highlighting
-    }
+    // Reset highlighting with both callbacks
+    if (onWordChange) onWordChange(-1)
+    if (onWordHighlight) onWordHighlight(-1)
   }
 
   const handlePlay = () => {
@@ -151,20 +169,23 @@ const AudioPlayer = ({ text, speechText, isSimplified, onWordChange }) => {
   }
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0
+  const buttonSize = getButtonSize()
+  const controlButtonSize = getControlButtonSize()
 
   return (
     <div className="flex items-center space-x-4">
         {/* Play/Pause Button */}
         <button
           onClick={isPlaying ? handlePause : handlePlay}
-          className="w-12 h-12 bg-purple-600 hover:bg-purple-700 rounded-full flex items-center justify-center text-white transition-colors"
+          className={`${buttonSize.width} bg-purple-600 hover:bg-purple-700 rounded-full flex items-center justify-center text-white transition-colors shadow-lg focus:ring-4 focus:ring-purple-300`}
+          title={isPlaying ? 'Pause' : 'Play'}
         >
           {isPlaying ? (
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+            <svg className={buttonSize.icon} fill="currentColor" viewBox="0 0 24 24">
               <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
             </svg>
           ) : (
-            <svg className="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24">
+            <svg className={`${buttonSize.icon} ml-1`} fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z"/>
             </svg>
           )}
@@ -173,9 +194,10 @@ const AudioPlayer = ({ text, speechText, isSimplified, onWordChange }) => {
         {/* Stop Button */}
         <button
           onClick={handleStop}
-          className="w-10 h-10 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center text-gray-600 transition-colors"
+          className={`${controlButtonSize.width} bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center text-gray-600 transition-colors focus:ring-4 focus:ring-gray-200`}
+          title="Stop"
         >
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+          <svg className={controlButtonSize.icon} fill="currentColor" viewBox="0 0 24 24">
             <path d="M6 6h12v12H6z"/>
           </svg>
         </button>
