@@ -1,0 +1,33 @@
+{
+  "docId": "test-document-123",
+  "options": {
+    "readingLevel": "grade6",
+    "length": "medium"
+  },
+  "chunks": [
+    {
+      "id": "chunk-001",
+      "seq": 0,
+      "start": 0,
+      "end": 156,
+      "tokenEstimate": 35,
+      "text": "TTR Calculation\nThere are 2 different tables to calculate TTR from, depending on if we are calculating the time for a control plane / data plane workload.\nData Plane Workloads\nData for Data Plane Workloads is present in VirtualClientPerformance DB. We will query the ProcessedMetrics table to get the timestamp when the MetricValue for a Metric with name containing '-Result' changes from 1 to 0. This will give us the timestamp when the workload recovered and help us calculate the TTR.\nControl Plane Workloads\nData for Control Plane workloads is in the WorkloadReport DB. It contains results for loop executions of the workload, by all scenarios. We will find the first loop after our Recovery Phase is completed, where all the scenarios in the loop succeed. This will give us the timestamp when the workload fully recovered.\n"
+    },
+    {
+      "id": "chunk-002",
+      "seq": 1,
+      "start": 157,
+      "end": 345,
+      "tokenEstimate": 42,
+      "text": "Function Design\nThe Kusto function will have 3 parameters \n1.\tDrill ID (mandatory): The EventID of the drill.\n2.\tGoal State ID (optional): Goal State ID associated with a drill. If empty, follow the Drill ID path.\n3.\tFault Recovery Completed Time (optional): Time at which the fault recovery was completed. If empty, get the ExitingFault Phase End time using the DrillPhases function.\nNote: The reason Exiting Fault Phase End Time is added as an optional parameter, is that the Kusto doesn't seem to have reliable data at the moment.\n"
+    },
+    {
+      "id": "chunk-003", 
+      "seq": 2,
+      "start": 346,
+      "end": 512,
+      "tokenEstimate": 38,
+      "text": "Behaviour\n1.\tDetermine FaultPhaseEndTime: use FaultRecoveryCompletedTime if supplied; otherwise fetch PhaseEnd from DrillPhases for EventId == DrillId and PhaseName == 'ExitingFault'.\n2.\tResolve workload runs:\n a. If Goal State Id is present: get all WorkloadRunGuids from WorkloadRun where CustomDimensions.GoalStateGuid == GoalStateId.\n b. Else: get all WorkloadRunGuids where CustomDimensions.DrillId == DrillId.\n3. For each workload\n a. Query VirtualClientPerformance.ProcessedMetrics to find the first 1→0 flip for *-Result (with MetricUnit == \"CheckResult\") after FaultPhaseEndTime. Note the timestamp where the MetricValue changed to 0 as the workload's RecoveryTimestamp.\n b. If no results found in VirtualClientPerformance (it is a Control Plane Workload), query WorkloadReport.ScenarioResult to find the first loop after RecoveryPhaseEndTime where all results are Pass, taking that loop's earliest timestamp as the RecoveryTimestamp.\n c. Calculate TTR as RecoveryTimestamp - FaultPhaseEndTime\n4. Project - \n a. Workload Name\n b. Workload Run Id\n c. Recovery Timestamp\n d. TTR (in minutes)\n"
+    }
+  ]
+}

@@ -86,6 +86,7 @@ web_modules/
 
 # IDE and editor files
 .vscode/
+.vs/
 .idea/
 *.swp
 *.swo
@@ -109,6 +110,13 @@ Thumbs.db
 
 # Azure
 .azure/
+
+# .NET Build Output
+**/bin/
+**/obj/
+
+# Azure Functions
+**/local.settings.json
 
 # Docker
 Dockerfile
