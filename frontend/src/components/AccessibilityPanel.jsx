@@ -4,6 +4,7 @@ import {
   FONT_SIZES, 
   LINE_SPACING,
   LETTER_SPACING,
+  COLOR_THEMES,
   getAccessibilitySettings,
   saveAccessibilitySettings,
   resetToDefaults,
@@ -172,20 +173,80 @@ const AccessibilityPanel = ({ isOpen, onClose, onSettingsChange }) => {
                   </div>
                 </div>
 
+                {/* Color Themes */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                    Background & Text Colors
+                    <span className="text-sm font-normal text-gray-600 ml-2">
+                      (Choose colors that work best for you)
+                    </span>
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(COLOR_THEMES).map(([key, theme]) => (
+                      <button
+                        key={key}
+                        onClick={() => updateSetting('colorTheme', key)}
+                        className={`p-4 text-left border-2 rounded-lg transition-all relative overflow-hidden ${
+                          settings.colorTheme === key
+                            ? 'border-purple-500 ring-2 ring-purple-200'
+                            : 'border-gray-300 hover:border-purple-300'
+                        }`}
+                        style={{ 
+                          backgroundColor: theme.bgColor,
+                          color: theme.textColor,
+                          borderColor: settings.colorTheme === key ? '#8B5CF6' : theme.borderColor
+                        }}
+                      >
+                        <div className="relative z-10">
+                          <div className="font-medium text-base mb-1">{theme.name}</div>
+                          <div className="text-sm opacity-75 mb-2">{theme.description}</div>
+                          <div className="text-xs opacity-60">
+                            Sample text in this color scheme
+                          </div>
+                        </div>
+                        {settings.colorTheme === key && (
+                          <div className="absolute top-2 right-2">
+                            <svg className="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-start space-x-2">
+                      <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div className="text-sm text-blue-800">
+                        <div className="font-medium mb-1">Color & Reading Tips:</div>
+                        <ul className="text-xs space-y-1">
+                          <li>• <strong>Cream backgrounds</strong> are research-backed for dyslexia - reduce white paper glare and visual stress</li>
+                          <li>• <strong>Blue backgrounds</strong> can improve focus and reading flow</li>
+                          <li>• <strong>Dark mode</strong> helps in low-light conditions</li>
+                          <li>• <strong>High contrast</strong> improves text clarity for some users</li>
+                          <li>• All colors meet accessibility contrast standards</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recommendations - Moved inside scrollable area */}
+                {recommendations.length > 0 && (
+                  <div className="border border-yellow-200 bg-yellow-50 p-4 rounded-lg mt-6">
+                    <h4 className="font-medium text-yellow-800 mb-2">💡 Recommendations</h4>
+                    <ul className="text-sm text-yellow-700 space-y-1">
+                      {recommendations.map((rec, index) => (
+                        <li key={index}>• {rec}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
               </div>
             </div>
-
-          {/* Recommendations */}
-          {recommendations.length > 0 && (
-            <div className="border-t border-gray-200 bg-yellow-50 p-4">
-              <h4 className="font-medium text-yellow-800 mb-2">💡 Recommendations</h4>
-              <ul className="text-sm text-yellow-700 space-y-1">
-                {recommendations.map((rec, index) => (
-                  <li key={index}>• {rec}</li>
-                ))}
-              </ul>
-            </div>
-          )}
 
           {/* Footer */}
           <div className="border-t border-gray-200 bg-gray-50 px-6 py-4 flex justify-between items-center">

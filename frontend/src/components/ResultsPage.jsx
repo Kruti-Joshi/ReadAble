@@ -19,7 +19,7 @@ const ResultsPage = ({ processedText, onBack }) => {
   // Handler functions
   const handleCopy = async () => {
     try {
-      const textToCopy = processedText?.simplified || ''
+      const textToCopy = formatTextForReadability(processedText?.simplified || '', accessibilitySettings)
       
       await navigator.clipboard.writeText(textToCopy)
       setCopied(true)
@@ -33,7 +33,7 @@ const ResultsPage = ({ processedText, onBack }) => {
 
   const handleDownload = () => {
     try {
-      const textToDownload = processedText?.simplified || ''
+      const textToDownload = formatTextForReadability(processedText?.simplified || '', accessibilitySettings)
       
       const blob = new Blob([textToDownload], { type: 'text/plain' })
       const url = URL.createObjectURL(blob)
@@ -56,7 +56,7 @@ const ResultsPage = ({ processedText, onBack }) => {
 
   // Apply accessibility settings when they change
   useEffect(() => {
-    const theme = getThemeColors()
+    const theme = getThemeColors(accessibilitySettings)
     document.body.style.backgroundColor = theme.bgColor
   }, [accessibilitySettings])
 
@@ -117,7 +117,7 @@ const ResultsPage = ({ processedText, onBack }) => {
             }
           }}
           className={`transition-all duration-200 ${
-            isCurrentWord ? 'bg-yellow-300 px-1 rounded-md shadow-sm font-semibold transform scale-105' : ''
+            isCurrentWord ? 'bg-blue-100 border-2 border-blue-400 px-1 rounded-md shadow-sm font-semibold transform scale-105' : ''
           }`}
         >
           {part}
@@ -126,7 +126,7 @@ const ResultsPage = ({ processedText, onBack }) => {
     })
   }
 
-  const theme = getThemeColors()
+  const theme = getThemeColors(accessibilitySettings)
   const textStyles = getTextStyles(accessibilitySettings)
 
   // Button styling based on accessibility settings
@@ -146,8 +146,8 @@ const ResultsPage = ({ processedText, onBack }) => {
       className={`min-h-screen ${theme.bg} transition-colors duration-300`}
       style={{ fontFamily: textStyles.fontFamily }}
     >
-      {/* Header */}
-      <header className={`${theme.bg} border-b border-gray-200 shadow-sm`}>
+      {/* Fixed Header */}
+      <header className={`fixed top-0 left-0 right-0 z-50 ${theme.bg} border-b border-gray-200 shadow-sm`}>
         <div className={`max-w-7xl mx-auto px-6 py-4`}>
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-3">
@@ -183,10 +183,10 @@ const ResultsPage = ({ processedText, onBack }) => {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex flex-col h-screen pt-20">
-        {/* Fixed Audio Player */}
-        <div className="fixed top-20 left-0 right-0 z-40 bg-white border-b shadow-sm">
+      {/* Main Content with top padding to account for fixed header */}
+      <main className="pt-20">
+        {/* Fixed Audio Player positioned directly below header with no gap */}
+        <div className={`fixed top-20 left-0 right-0 z-40 ${theme.bg} border-b shadow-sm`}>
           <div className="max-w-7xl mx-auto px-6 py-4">
             {/* Actions and Controls */}
             <section className="mb-4">
@@ -214,7 +214,7 @@ const ResultsPage = ({ processedText, onBack }) => {
                 
                 <div className="flex items-center space-x-4">
                   <span className={`text-sm ${theme.textSecondary}`}>
-                    Simplified: {(processedText?.simplified || '').split(/\s+/).filter(word => word.length > 0).length} words
+                    Simplified: {formatTextForReadability(processedText?.simplified || '', accessibilitySettings).split(/\s+/).filter(word => word.length > 0).length} words
                   </span>
                   <div className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                     Simplified Document
@@ -226,7 +226,7 @@ const ResultsPage = ({ processedText, onBack }) => {
             {/* Audio Player */}
             <div className="flex justify-center">
               <AudioPlayer
-                text={processedText?.simplified || ''}
+                text={formatTextForReadability(processedText?.simplified || '', accessibilitySettings)}
                 onWordHighlight={handleWordHighlight}
                 accessibilitySettings={accessibilitySettings}
               />
@@ -234,8 +234,8 @@ const ResultsPage = ({ processedText, onBack }) => {
           </div>
         </div>
 
-        {/* Scrollable Content Area */}
-        <div className="flex-1 overflow-y-auto pt-32 pb-8">
+        {/* Scrollable Content Area - adjusted padding for fixed header and audio player */}
+        <div className="pt-36 pb-8">
           <div className="max-w-4xl mx-auto px-6">
             {/* Simplified Text Content */}
             <div className={`${theme.bg} rounded-lg shadow-sm border`}>

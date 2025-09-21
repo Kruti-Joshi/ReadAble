@@ -94,6 +94,7 @@ frontend/
 - Speed control (0.5x to 2.0x)
 - Voice selection
 - Uses Web Speech API for text-to-speech
+- Word highlighting uses soft blue borders (yellow backgrounds can be problematic for users with dyslexia)
 
 ## Customization
 

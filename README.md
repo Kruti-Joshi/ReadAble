@@ -1,4 +1,8 @@
-# ReadAble - Accessible Reading Assistant
+# ReadAble - Accessible R### 🎵 **Audio Accessibility**
+- **Text-to-Speech**: Built-in browser-native speech synthesis
+- **Word Synchronization**: Visual highlighting follows audio playback using gentle blue borders instead of high-contrast yellow (which can cause visual stress for some users with dyslexia)
+- **Speed Control**: Adjustable reading speed for different needs
+- **Voice Selection**: Multiple voice options where availableg Assistant
 
 > **Hackathon Project 2025** - Making documents accessible for people with dyslexia and learning disabilities through evidence-based design and assistive technology
 
@@ -13,7 +17,7 @@ ReadAble is built with comprehensive accessibility features based on dyslexia re
 ### 🎯 **Core Accessibility Features**
 - **🔤 OpenDyslexic Font**: Default dyslexia-friendly typography
 - **📏 Large Touch Targets**: 44px minimum button sizes for easy interaction
-- **✨ Word Highlighting**: Real-time word highlighting synchronized with audio
+- **✨ Word Highlighting**: Real-time word highlighting synchronized with audio using soft blue borders (yellow backgrounds can be problematic for some people with dyslexia)
 - **🎨 Optimized Colors**: Soft backgrounds that reduce eye strain
 - **📖 Clear Typography**: Evidence-based font sizes and spacing
 
@@ -175,7 +179,7 @@ ReadAble Hackathon 2025/
 - Voice customization for different needs
 - Batch processing for multiple documents
 - Integration with assistive technologies
-- Customizable color themes for different visual needs
+- Customizable color themes for different visual needs (including research-backed cream backgrounds for dyslexia)
 
 ## 🤝 Contributing
 

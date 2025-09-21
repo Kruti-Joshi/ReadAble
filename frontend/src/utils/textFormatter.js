@@ -36,6 +36,31 @@ export function formatText(text) {
 }
 
 /**
+ * Removes surrounding quotes from text if present
+ * @param {string} text - Text that might have surrounding quotes
+ * @returns {string} - Text with quotes removed
+ */
+export function removeQuotes(text) {
+  if (!text || typeof text !== 'string') {
+    return '';
+  }
+
+  let cleaned = text.trim();
+  
+  // Remove surrounding double quotes
+  if (cleaned.startsWith('"') && cleaned.endsWith('"') && cleaned.length > 1) {
+    cleaned = cleaned.slice(1, -1);
+  }
+  
+  // Remove surrounding single quotes
+  if (cleaned.startsWith("'") && cleaned.endsWith("'") && cleaned.length > 1) {
+    cleaned = cleaned.slice(1, -1);
+  }
+  
+  return cleaned.trim();
+}
+
+/**
  * Processes text for text-to-speech by removing formatting that doesn't read well
  * @param {string} text - Text to process for speech
  * @returns {string} - Text optimized for speech synthesis
@@ -45,7 +70,10 @@ export function formatTextForSpeech(text) {
     return '';
   }
 
-  return text
+  // First remove quotes, then format for speech
+  const cleaned = removeQuotes(text);
+
+  return cleaned
     // First decode Unicode escape sequences
     .replace(/\\u([0-9A-Fa-f]{4})/g, (match, code) => {
       return String.fromCharCode(parseInt(code, 16));
@@ -76,7 +104,8 @@ export function formatTextForSpeech(text) {
  * @returns {string} - Text with proper formatting for HTML display
  */
 export function formatTextForDisplay(text) {
-  const formatted = formatText(text);
+  const cleaned = removeQuotes(text);
+  const formatted = formatText(cleaned);
   
   // For React components, we'll return the formatted text
   // The component should use CSS white-space: pre-wrap to preserve formatting
