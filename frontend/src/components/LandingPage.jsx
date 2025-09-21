@@ -8,9 +8,11 @@ const LandingPage = ({ onFileUpload, isProcessing, processingProgress, processin
       <header className="px-6 py-4">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">R</span>
-            </div>
+            <img 
+              src="/ReadableLogo.png" 
+              alt="ReadAble Logo" 
+              className="w-10 h-10 rounded-lg object-contain"
+            />
             <span className="text-xl font-semibold text-gray-900">ReadAble</span>
           </div>
           <nav className="flex space-x-8">

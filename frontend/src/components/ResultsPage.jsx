@@ -151,9 +151,11 @@ const ResultsPage = ({ processedText, onBack }) => {
         <div className={`max-w-7xl mx-auto px-6 py-4`}>
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center shadow-md">
-                <span className="text-white font-bold text-lg">R</span>
-              </div>
+              <img 
+                src="/ReadableLogo.png" 
+                alt="ReadAble Logo" 
+                className="w-10 h-10 rounded-lg object-contain"
+              />
               <div>
                 <span className={`text-xl font-semibold ${theme.text}`}>ReadAble</span>
                 <p className="text-sm text-gray-600">Accessible Reading Assistant</p>
