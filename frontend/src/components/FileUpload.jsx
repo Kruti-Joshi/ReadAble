@@ -54,9 +54,21 @@ const FileUpload = ({ onFileUpload, disabled }) => {
         }
       }
       
+      // Additional validation for PDF files
+      if (file.name.endsWith('.pdf') || file.type === 'application/pdf') {
+        if (file.size === 0) {
+          alert('The PDF document appears to be empty. Please select a valid document.')
+          return
+        }
+        if (file.size > 100 * 1024 * 1024) { // 100MB limit for PDFs
+          alert('PDF document is too large. Please use a file smaller than 100MB.')
+          return
+        }
+      }
+      
       onFileUpload(file)
     } else {
-      alert('Please upload a text file (.txt) or Word document (.docx). PDF and legacy Word (.doc) files are not currently supported.')
+      alert('Please upload a text file (.txt), Word document (.docx), or PDF file (.pdf). Legacy Word (.doc) files are not currently supported.')
     }
   }
 
@@ -130,7 +142,7 @@ const FileUpload = ({ onFileUpload, disabled }) => {
       </div>
       
       <p className={`text-sm text-center mt-4 ${disabled ? 'text-gray-400' : 'text-gray-500'}`}>
-        Supports: Text files (.txt) and Word documents (.docx)
+        Supports: Text files (.txt), Word documents (.docx), and PDF files (.pdf)
       </p>
     </div>
   )

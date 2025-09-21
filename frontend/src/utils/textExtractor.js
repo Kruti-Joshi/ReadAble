@@ -3,6 +3,15 @@
  */
 
 import mammoth from 'mammoth'
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Initialize and configure PDF.js worker using local file
+if (typeof window !== 'undefined') {
+  // Use local worker file served from public directory
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+}
+
+
 
 /**
  * Extracts text content from a file based on its type
@@ -22,11 +31,11 @@ export async function extractTextFromFile(file) {
     ) {
       return await extractTextFromDocxFile(file);
     } else if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
-      throw new Error('PDF extraction requires additional library. Please use text files or Word documents for now.');
+      return await extractTextFromPdfFile(file);
     } else if (fileType === 'application/msword' || fileName.endsWith('.doc')) {
       throw new Error('Legacy Word document (.doc) extraction is not supported. Please save as .docx format or use text files.');
     } else {
-      throw new Error('Unsupported file type. Please use text files (.txt) or Word documents (.docx).');
+      throw new Error('Unsupported file type. Please use text files (.txt), Word documents (.docx), or PDF files (.pdf).');
     }
   } catch (error) {
     console.error('Error extracting text from file:', error);
@@ -155,6 +164,112 @@ async function extractTextFromDocxFile(file) {
 }
 
 /**
+ * Extracts text from a PDF document
+ * @param {File} file - PDF file
+ * @returns {Promise<string>} - Extracted text content
+ */
+async function extractTextFromPdfFile(file) {
+  return new Promise((resolve, reject) => {
+    // Validate file size (reasonable limits)
+    if (file.size === 0) {
+      reject(new Error('The PDF document appears to be empty or corrupted.'));
+      return;
+    }
+    
+    if (file.size > 100 * 1024 * 1024) { // 100MB limit for PDFs
+      reject(new Error('PDF document is too large. Please use a smaller file (under 100MB).'));
+      return;
+    }
+
+    const reader = new FileReader();
+    
+    reader.onload = async (event) => {
+      try {
+        const arrayBuffer = event.target.result;
+        
+        // Basic validation that we have data
+        if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+          throw new Error('The PDF document appears to be empty or corrupted.');
+        }
+        
+        // Validate PDF structure (PDF files start with %PDF)
+        const view = new Uint8Array(arrayBuffer);
+        const pdfSignature = [0x25, 0x50, 0x44, 0x46]; // %PDF
+        const isValidPdf = pdfSignature.every((byte, index) => view[index] === byte);
+        
+        if (!isValidPdf) {
+          throw new Error('This does not appear to be a valid PDF document. Please check the file format.');
+        }
+
+        // Load PDF document using PDF.js with minimal configuration
+        const loadingTask = pdfjsLib.getDocument({
+          data: arrayBuffer,
+          useWorkerFetch: false,
+          isEvalSupported: false,
+          useSystemFonts: true,
+        });
+        
+        const pdf = await loadingTask.promise;
+        console.log(`PDF loaded: ${pdf.numPages} pages`);
+        
+        let fullText = '';
+        
+        // Extract text from each page
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          try {
+            const page = await pdf.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            
+            const pageText = textContent.items
+              .map(item => item.str)
+              .join(' ');
+            
+            fullText += pageText + '\n\n';
+          } catch (pageError) {
+            console.warn(`Error extracting text from page ${pageNum}:`, pageError);
+            // Continue with other pages
+          }
+        }
+        
+        // Clean up the text
+        fullText = fullText.trim();
+        
+        // Check if we got any text
+        if (!fullText || fullText.length === 0) {
+          throw new Error('No text content could be extracted from this PDF. The document might be image-based, password-protected, or contain only images/graphics.');
+        }
+        
+        console.log(`PDF extraction successful: ${pdf.numPages} pages, ${fullText.length} characters`);
+        
+        resolve(fullText);
+      } catch (error) {
+        console.error('PDF extraction error:', error);
+        // Provide more specific error messages based on the error
+        if (error.message.includes('Invalid PDF') || error.message.includes('Invalid header')) {
+          reject(new Error('Invalid or corrupted PDF file. Please ensure the file is a valid PDF document.'));
+        } else if (error.message.includes('password') || error.message.includes('Password')) {
+          reject(new Error('This PDF appears to be password-protected. Please use an unprotected PDF file.'));
+        } else if (error.message.includes('encrypted')) {
+          reject(new Error('This PDF is encrypted and cannot be processed. Please use an unencrypted PDF file.'));
+        } else if (error.name === 'PasswordException') {
+          reject(new Error('This PDF is password-protected and cannot be processed. Please use an unprotected PDF file.'));
+        } else if (error.message.includes('worker')) {
+          reject(new Error('PDF processing worker failed to load. Please check your internet connection and try again.'));
+        } else {
+          reject(new Error('Failed to extract text from PDF: ' + error.message));
+        }
+      }
+    };
+    
+    reader.onerror = (event) => {
+      reject(new Error('Failed to read PDF file: ' + (event.target?.error?.message || 'Unknown error')));
+    };
+    
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/**
  * Validates if a file type is supported for text extraction
  * @param {File} file - File to validate
  * @returns {boolean} - True if supported, false otherwise
@@ -171,6 +286,15 @@ export function isFileTypeSupported(file) {
   // Check for DOCX files with stricter validation
   if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
       fileName.endsWith('.docx')) {
+    // Additional validation: file should have reasonable size
+    if (file.size === 0) {
+      return false; // Empty files are not valid
+    }
+    return true;
+  }
+  
+  // Check for PDF files
+  if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
     // Additional validation: file should have reasonable size
     if (file.size === 0) {
       return false; // Empty files are not valid

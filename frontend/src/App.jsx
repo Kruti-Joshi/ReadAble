@@ -22,7 +22,7 @@ function App() {
     try {
       // Validate file type
       if (!isFileTypeSupported(file)) {
-        throw new Error('File type not supported. Please use a text file (.txt) or Word document (.docx).')
+        throw new Error('File type not supported. Please use a text file (.txt), Word document (.docx), or PDF file (.pdf).')
       }
 
       // Test API connection first
