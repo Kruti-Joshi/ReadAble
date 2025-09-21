@@ -22,7 +22,7 @@ function App() {
     try {
       // Validate file type
       if (!isFileTypeSupported(file)) {
-        throw new Error('File type not supported. Please use a text file (.txt).')
+        throw new Error('File type not supported. Please use a text file (.txt) or Word document (.docx).')
       }
 
       // Test API connection first
@@ -85,7 +85,7 @@ function App() {
           totalChunks: result.totalChunks,
           successfulChunks: result.successfulChunks,
           errors: result.errors,
-          wordCount: originalText.split(/\s+/).length
+          wordCount: originalText.split(/\s+/).filter(word => word.length > 0).length
         }
       })
 

@@ -2,6 +2,8 @@
  * Text extraction utilities for different file types
  */
 
+import mammoth from 'mammoth'
+
 /**
  * Extracts text content from a file based on its type
  * @param {File} file - The file to extract text from
@@ -14,17 +16,17 @@ export async function extractTextFromFile(file) {
   try {
     if (fileType === 'text/plain' || fileName.endsWith('.txt')) {
       return await extractTextFromTextFile(file);
-    } else if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
-      throw new Error('PDF extraction requires additional library. Please use text files for now.');
     } else if (
       fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
       fileName.endsWith('.docx')
     ) {
-      throw new Error('Word document extraction requires additional library. Please use text files for now.');
+      return await extractTextFromDocxFile(file);
+    } else if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
+      throw new Error('PDF extraction requires additional library. Please use text files or Word documents for now.');
     } else if (fileType === 'application/msword' || fileName.endsWith('.doc')) {
-      throw new Error('Word document extraction requires additional library. Please use text files for now.');
+      throw new Error('Legacy Word document (.doc) extraction is not supported. Please save as .docx format or use text files.');
     } else {
-      throw new Error('Unsupported file type. Please use text files (.txt).');
+      throw new Error('Unsupported file type. Please use text files (.txt) or Word documents (.docx).');
     }
   } catch (error) {
     console.error('Error extracting text from file:', error);
@@ -54,6 +56,105 @@ async function extractTextFromTextFile(file) {
 }
 
 /**
+ * Validates if a DOCX file has the correct structure
+ * @param {ArrayBuffer} arrayBuffer - File buffer
+ * @returns {boolean} - True if appears to be valid DOCX
+ */
+function isValidDocxStructure(arrayBuffer) {
+  try {
+    // Check for ZIP file signature (DOCX files are ZIP archives)
+    const view = new Uint8Array(arrayBuffer);
+    
+    // ZIP file signatures
+    const zipSignatures = [
+      [0x50, 0x4B, 0x03, 0x04], // Standard ZIP
+      [0x50, 0x4B, 0x05, 0x06], // Empty ZIP
+      [0x50, 0x4B, 0x07, 0x08]  // Spanned ZIP
+    ];
+    
+    // Check if file starts with a ZIP signature
+    for (const signature of zipSignatures) {
+      if (view.length >= signature.length) {
+        const matches = signature.every((byte, index) => view[index] === byte);
+        if (matches) return true;
+      }
+    }
+    
+    return false;
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * Extracts text from a DOCX Word document
+ * @param {File} file - DOCX file
+ * @returns {Promise<string>} - Extracted text content
+ */
+async function extractTextFromDocxFile(file) {
+  return new Promise((resolve, reject) => {
+    // Validate file size (reasonable limits)
+    if (file.size === 0) {
+      reject(new Error('The Word document appears to be empty or corrupted.'));
+      return;
+    }
+    
+    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+      reject(new Error('Word document is too large. Please use a smaller file (under 50MB).'));
+      return;
+    }
+
+    const reader = new FileReader();
+    
+    reader.onload = async (event) => {
+      try {
+        const arrayBuffer = event.target.result;
+        
+        // Basic validation that we have data
+        if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+          throw new Error('The Word document appears to be empty or corrupted.');
+        }
+        
+        // Validate DOCX structure
+        if (!isValidDocxStructure(arrayBuffer)) {
+          throw new Error('This does not appear to be a valid Word document (.docx). Please check the file format.');
+        }
+        
+        // Try to extract text using mammoth
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        
+        // Log any warnings but don't fail
+        if (result.messages && result.messages.length > 0) {
+          console.warn('Word document extraction warnings:', result.messages);
+        }
+        
+        // Check if we got any text
+        if (!result.value || result.value.trim().length === 0) {
+          throw new Error('No text content could be extracted from this Word document. The document might be empty or contain only images/tables.');
+        }
+        
+        resolve(result.value);
+      } catch (error) {
+        // Provide more specific error messages based on the error
+        if (error.message.includes('zip file') || error.message.includes('central directory')) {
+          reject(new Error('The Word document appears to be corrupted or is not a valid .docx file. Please try saving the document again or use a different file.'));
+        } else if (error.message.includes('Cannot read properties')) {
+          reject(new Error('Invalid Word document format. Please ensure the file is a valid .docx document.'));
+        } else {
+          reject(new Error('Failed to extract text from Word document: ' + error.message));
+        }
+      }
+    };
+    
+    reader.onerror = (event) => {
+      reject(new Error('Failed to read Word document file: ' + (event.target?.error?.message || 'Unknown error')));
+    };
+    
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/**
  * Validates if a file type is supported for text extraction
  * @param {File} file - File to validate
  * @returns {boolean} - True if supported, false otherwise
@@ -62,10 +163,22 @@ export function isFileTypeSupported(file) {
   const fileType = file.type.toLowerCase();
   const fileName = file.name.toLowerCase();
   
-  return (
-    fileType === 'text/plain' || 
-    fileName.endsWith('.txt')
-  );
+  // Check for text files
+  if (fileType === 'text/plain' || fileName.endsWith('.txt')) {
+    return true;
+  }
+  
+  // Check for DOCX files with stricter validation
+  if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+      fileName.endsWith('.docx')) {
+    // Additional validation: file should have reasonable size
+    if (file.size === 0) {
+      return false; // Empty files are not valid
+    }
+    return true;
+  }
+  
+  return false;
 }
 
 /**

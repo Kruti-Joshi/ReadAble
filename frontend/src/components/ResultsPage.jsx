@@ -214,7 +214,7 @@ const ResultsPage = ({ processedText, onBack }) => {
                 
                 <div className="flex items-center space-x-4">
                   <span className={`text-sm ${theme.textSecondary}`}>
-                    Simplified: {(processedText?.simplified || '').length} characters
+                    Simplified: {(processedText?.simplified || '').split(/\s+/).filter(word => word.length > 0).length} words
                   </span>
                   <div className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                     Simplified Document

@@ -42,9 +42,21 @@ const FileUpload = ({ onFileUpload, disabled }) => {
     const allowedTypes = ['text/plain', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
     
     if (allowedTypes.includes(file.type) || file.name.endsWith('.txt') || file.name.endsWith('.pdf') || file.name.endsWith('.doc') || file.name.endsWith('.docx')) {
+      // Additional validation for DOCX files
+      if (file.name.endsWith('.docx') || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        if (file.size === 0) {
+          alert('The Word document appears to be empty. Please select a valid document.')
+          return
+        }
+        if (file.size > 50 * 1024 * 1024) { // 50MB limit
+          alert('Word document is too large. Please use a file smaller than 50MB.')
+          return
+        }
+      }
+      
       onFileUpload(file)
     } else {
-      alert('Please upload a text file, PDF, or Word document.')
+      alert('Please upload a text file (.txt) or Word document (.docx). PDF and legacy Word (.doc) files are not currently supported.')
     }
   }
 
@@ -118,8 +130,7 @@ const FileUpload = ({ onFileUpload, disabled }) => {
       </div>
       
       <p className={`text-sm text-center mt-4 ${disabled ? 'text-gray-400' : 'text-gray-500'}`}>
-        Supports: PDF, Word documents, and text files
-        {disabled && ' (currently only text files supported)'}
+        Supports: Text files (.txt) and Word documents (.docx)
       </p>
     </div>
   )
