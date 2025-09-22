@@ -1,4 +1,17 @@
-# ReadAble - Accessible R### 🎵 **Audio Accessibility**
+# ReadAble - Accessible Reading Assistant**
+- **📁 File Upload**: Drag-and-drop support for PDF, Word documents, and text files
+- **🖼️ Image Processing**: OCR text extraction from images in Word documents (.docx)
+- **✏️ Text Simplification**: Converts complex text into A2 reading level plain language
+- **🔒 Privacy First**: Files never leave your session - completely private
+
+### 🖼️ **Image & OCR Support**
+- **📄 Word Document Images**: Automatic detection and text extraction from images in .docx files
+- **🔍 OCR Technology**: Powered by Tesseract.js for accurate text recognition
+- **📊 Smart Classification**: Distinguishes between text-containing images and diagrams
+- **⚠️ Current Limitations**: 
+  - PDF image extraction not yet supported
+  - Technical diagrams (UML, flowcharts) are detected but not simplified
+  - OCR accuracy depends on image quality and text clarityccessibility**
 - **Text-to-Speech**: Built-in browser-native speech synthesis
 - **Word Synchronization**: Visual highlighting follows audio playback using gentle blue borders instead of high-contrast yellow (which can cause visual stress for some users with dyslexia)
 - **Speed Control**: Adjustable reading speed for different needs
@@ -62,7 +75,30 @@ ReadAble is built with comprehensive accessibility features based on dyslexia re
 
 *Add your live demo link here once deployed*
 
-## 🛠️ Tech Stack
+## Image Processing Workflow
+
+ReadAble includes sophisticated image processing capabilities for Word documents:
+
+### 📄 **Word Document Processing**
+1. **Document Parsing**: mammoth.js extracts text and embedded images
+2. **Image Detection**: Automatic discovery of base64-encoded images
+3. **Smart Classification**: Canvas-based analysis to distinguish text vs. diagrams
+4. **OCR Processing**: Tesseract.js extracts text from images containing readable content
+5. **Text Integration**: OCR results are combined with document text for complete processing
+
+### 🔍 **OCR Features**
+- **Automatic Processing**: All images are processed for potential text content
+- **Quality Detection**: Results are validated for meaningful text extraction
+- **Multiple Formats**: Supports PNG, JPEG, and other common image formats in Word docs
+- **Confidence Scoring**: OCR results include confidence metrics for reliability
+
+### ⚠️ **Current Limitations**
+- **PDF Images**: Image extraction from PDFs not yet implemented
+- **Technical Diagrams**: UML, flowcharts, and complex diagrams are detected but not simplified
+- **Image Quality**: OCR accuracy depends on source image resolution and clarity
+- **Complex Layouts**: Multi-column or heavily formatted text in images may have reduced accuracy
+
+## �🛠️ Tech Stack
 
 ### Frontend
 - **React 18** - Modern React with hooks and accessibility patterns
@@ -70,6 +106,9 @@ ReadAble is built with comprehensive accessibility features based on dyslexia re
 - **Tailwind CSS** - Utility-first CSS with accessibility-focused components
 - **Web Speech API** - Browser-native text-to-speech with word boundary events
 - **OpenDyslexic Font** - Specialized dyslexia-friendly typography
+- **mammoth.js** - Word document (.docx) processing and image extraction
+- **Tesseract.js** - Client-side OCR for text extraction from images
+- **Canvas API** - Image processing and analysis for smart classification
 
 ### Backend
 - *To be implemented* - Text processing API
@@ -165,13 +204,25 @@ ReadAble Hackathon 2025/
 - Responsive design across all devices
 - File drag-and-drop functionality
 - Real-time text-to-speech
+- **Image processing and OCR** for Word documents (.docx)
+- **Smart image classification** (text images vs. diagrams)
+
+✅ **Completed - Document Processing**
+- Word document (.docx) text extraction with mammoth.js
+- Base64 image extraction from embedded Word document images
+- OCR text extraction using Tesseract.js
+- Automatic image classification and processing
+- Combined text processing (document text + OCR results)
 
 🚧 **In Progress**
-- Backend API integration
-- Real text simplification
-- File processing (PDF, DOCX)
+- Backend API integration for text simplification
+- PDF image processing and OCR support
 
 🔮 **Planned**
+- Enhanced diagram interpretation and simplification
+- UML and flowchart text extraction and explanation
+- Multiple image format support (beyond Word documents)
+- Improved OCR accuracy with preprocessing
 - Advanced text simplification algorithms
 - Multiple language support with accessibility features
 - Reading level analysis and recommendations
@@ -229,18 +280,9 @@ Currently uses mock data for demonstration. To integrate real text simplificatio
 
 ## 📄 License
 
-This project is part of the ReadAble Hackathon 2025. See individual files for specific licensing terms.
+This project is part of the Microsoft Hackathon 2025.
 
-## 🏆 Hackathon Information
-
-- **Event**: ReadAble Hackathon 2025
-- **Theme**: Accessible Reading Technology for Learning Disabilities
-- **Date**: September 2025
-- **Goal**: Making complex documents accessible to people with dyslexia and learning differences
-- **Focus**: Evidence-based accessibility features with user-centered design
-- **Impact**: Empowering inclusive education and workplace accessibility
-
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **OpenDyslexic** - For the dyslexia-friendly font that improves readability
 - **Dyslexia Research Community** - For evidence-based design guidelines
