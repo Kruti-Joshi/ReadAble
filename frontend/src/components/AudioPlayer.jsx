@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 
-const AudioPlayer = ({ text, speechText, isSimplified, onWordChange, onWordHighlight, accessibilitySettings = {} }) => {
+const AudioPlayer = forwardRef(({ text, speechText, isSimplified, onWordChange, onWordHighlight, accessibilitySettings = {} }, ref) => {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -9,6 +9,8 @@ const AudioPlayer = ({ text, speechText, isSimplified, onWordChange, onWordHighl
   const [selectedVoice, setSelectedVoice] = useState(null)
   const [availableVoices, setAvailableVoices] = useState([])
   const [voiceType, setVoiceType] = useState('female') // 'male', 'female'
+  const [startFromWordIndex, setStartFromWordIndex] = useState(0) // New: track starting word
+  const [pausedWordIndex, setPausedWordIndex] = useState(-1) // New: track paused word
   const speechRef = useRef(null)
   const intervalRef = useRef(null)
   const currentTimeRef = useRef(0)
@@ -106,31 +108,116 @@ const AudioPlayer = ({ text, speechText, isSimplified, onWordChange, onWordHighl
   }, [])
 
   // Function to start precise word tracking using speech boundary events
-  const startWordTracking = (utterance) => {
+  const startWordTracking = (utterance, startWordOffset = 0) => {
     if ((!onWordChange && !onWordHighlight) || words.length === 0) return
     
     // Use the boundary event for precise word tracking
     utterance.onboundary = (event) => {
       if (event.name === 'word') {
-        // The charIndex tells us where the CURRENT word starts
-        const textUpToCurrentWord = textToSpeak.substring(0, event.charIndex)
+        // The charIndex tells us where the CURRENT word starts in the spoken text
+        const spokenText = utterance.text
+        const textUpToCurrentWord = spokenText.substring(0, event.charIndex)
         const wordsBeforeCurrent = textUpToCurrentWord.trim().split(/\s+/).filter(word => word.length > 0)
-        // The current word index is the count of words before + this word (so we don't subtract 1)
-        const currentWordIndex = wordsBeforeCurrent.length
+        // The current word index relative to the spoken text
+        const relativeWordIndex = wordsBeforeCurrent.length
         
-        if (currentWordIndex < words.length) {
+        // Add the starting offset to get the absolute word index in the original text
+        const absoluteWordIndex = startWordOffset + relativeWordIndex
+        
+        console.log(`Word tracking: event.charIndex=${event.charIndex}, relative=${relativeWordIndex}, absolute=${absoluteWordIndex}, word="${words[absoluteWordIndex] || 'undefined'}"`)
+        
+        if (absoluteWordIndex < words.length) {
           // Use both callbacks for backward compatibility
-          if (onWordChange) onWordChange(currentWordIndex)
-          if (onWordHighlight) onWordHighlight(currentWordIndex)
+          if (onWordChange) onWordChange(absoluteWordIndex)
+          if (onWordHighlight) onWordHighlight(absoluteWordIndex)
         }
       }
     }
   }
 
+  // Remove the old global function approach
+  useEffect(() => {
+    // Cleanup any existing global function
+    if (window.audioPlayerPlayFromWord) {
+      delete window.audioPlayerPlayFromWord
+    }
+  }, [])
+
+  // Function to start playing from a specific word
+  const playFromWord = (wordIndex) => {
+    if (!textToSpeak || words.length === 0 || wordIndex >= words.length || wordIndex < 0) return
+    
+    console.log(`Starting speech from word ${wordIndex}: "${words[wordIndex]}"`)
+    
+    // Stop current speech
+    if (isPlaying || isPaused) {
+      handleStop()
+    }
+    
+    // Create text starting from the specified word
+    const wordsFromIndex = words.slice(wordIndex)
+    const textFromWord = wordsFromIndex.join(' ')
+    
+    setStartFromWordIndex(wordIndex)
+    setPausedWordIndex(-1) // Clear paused state
+    
+    // Immediately highlight the starting word
+    if (onWordChange) onWordChange(wordIndex)
+    if (onWordHighlight) onWordHighlight(wordIndex)
+    
+    // Start speech with the truncated text
+    if ('speechSynthesis' in window && textFromWord.trim().length > 0) {
+      const utterance = new SpeechSynthesisUtterance(textFromWord)
+      utterance.rate = playbackRate
+      utterance.pitch = 1.0
+      utterance.volume = 1.0
+      
+      // Apply selected voice
+      if (selectedVoice) {
+        utterance.voice = selectedVoice
+      }
+      
+      // Set up word tracking with offset for the original text positions
+      startWordTracking(utterance, wordIndex)
+      
+      utterance.onend = () => {
+        console.log('Speech ended')
+        setIsPlaying(false)
+        setIsPaused(false)
+        setCurrentTime(0)
+        currentTimeRef.current = 0
+        clearInterval(intervalRef.current)
+        stopWordTracking()
+        setStartFromWordIndex(0)
+        setPausedWordIndex(-1)
+      }
+
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event.error)
+        setIsPlaying(false)
+        setIsPaused(false)
+        clearInterval(intervalRef.current)
+        stopWordTracking()
+        setStartFromWordIndex(0)
+        setPausedWordIndex(-1)
+      }
+      
+      speechRef.current = utterance
+      window.speechSynthesis.speak(utterance)
+      setIsPlaying(true)
+      setCurrentTime(0)
+      currentTimeRef.current = 0
+      startTimer()
+    }
+  }
+
   const stopWordTracking = () => {
-    // Reset highlighting with both callbacks
-    if (onWordChange) onWordChange(-1)
-    if (onWordHighlight) onWordHighlight(-1)
+    // Don't reset highlighting when paused - keep the last highlighted word visible
+    if (!isPaused) {
+      if (onWordChange) onWordChange(-1)
+      if (onWordHighlight) onWordHighlight(-1)
+      setPausedWordIndex(-1)
+    }
   }
 
   const handlePlay = () => {
@@ -155,7 +242,7 @@ const AudioPlayer = ({ text, speechText, isSimplified, onWordChange, onWordHighl
         }
         
         // Set up word tracking before other events
-        startWordTracking(utterance)
+        startWordTracking(utterance, 0) // Start from word 0 when playing normally
         
         utterance.onend = () => {
           setIsPlaying(false)
@@ -190,7 +277,9 @@ const AudioPlayer = ({ text, speechText, isSimplified, onWordChange, onWordHighl
       setIsPaused(true)
       setIsPlaying(false)
       clearInterval(intervalRef.current)
-      stopWordTracking()
+      
+      // Store the current word index when pausing so we keep it highlighted
+      // Note: We don't call stopWordTracking here to maintain highlighting
     }
   }
 
@@ -269,6 +358,23 @@ const AudioPlayer = ({ text, speechText, isSimplified, onWordChange, onWordHighl
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0
   const buttonSize = getButtonSize()
   const controlButtonSize = getControlButtonSize()
+
+  // Expose functions to parent component using ref
+  useImperativeHandle(ref, () => ({
+    playFromWord: (wordIndex) => {
+      console.log('AudioPlayer.playFromWord called with index:', wordIndex)
+      playFromWord(wordIndex)
+    },
+    stop: () => {
+      handleStop()
+    },
+    pause: () => {
+      handlePause()
+    },
+    play: () => {
+      handlePlay()
+    }
+  }), [playFromWord, handleStop, handlePause, handlePlay])
 
   return (
     <div className="flex items-center space-x-4">
@@ -349,6 +455,6 @@ const AudioPlayer = ({ text, speechText, isSimplified, onWordChange, onWordHighl
         </div>
       </div>
   )
-}
+})
 
 export default AudioPlayer

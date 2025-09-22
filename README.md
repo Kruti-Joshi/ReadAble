@@ -1,4 +1,4 @@
-# ReadAble - Accessible Reading Assistant**
+# ReadAble - Accessible Reading Assistant
 - **📁 File Upload**: Drag-and-drop support for PDF, Word documents, and text files
 - **🖼️ Image Processing**: OCR text extraction from images in Word documents (.docx)
 - **✏️ Text Simplification**: Converts complex text into A2 reading level plain language

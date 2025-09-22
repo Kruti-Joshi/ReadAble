@@ -15,6 +15,7 @@ const ResultsPage = ({ processedText, onBack }) => {
   const [accessibilitySettings, setAccessibilitySettings] = useState(getAccessibilitySettings())
   const [copied, setCopied] = useState(false)
   const wordElementsRef = useRef({})
+  const audioPlayerRef = useRef(null)
 
   // Handler functions
   const handleCopy = async () => {
@@ -53,6 +54,25 @@ const ResultsPage = ({ processedText, onBack }) => {
     console.log('Word highlight received:', wordIndex)
     setCurrentWordIndex(wordIndex)
   }, [])
+
+  // Handle clicking on a word to start speech from that position
+  const handleWordClick = (wordIndex) => {
+    // Get the word from the current element for debugging
+    const wordElement = wordElementsRef.current[wordIndex]
+    const wordText = wordElement ? wordElement.textContent : 'unknown'
+    
+    console.log('Word clicked - Index:', wordIndex, 'Word:', wordText)
+    
+    // Use the ref to call the AudioPlayer's playFromWord function
+    if (audioPlayerRef.current && audioPlayerRef.current.playFromWord) {
+      console.log('Calling audioPlayerRef.current.playFromWord with index:', wordIndex)
+      audioPlayerRef.current.playFromWord(wordIndex)
+    } else {
+      console.warn('AudioPlayer ref or playFromWord function not available')
+      // Fallback: just highlight the word
+      setCurrentWordIndex(wordIndex)
+    }
+  }
 
   // Apply accessibility settings when they change
   useEffect(() => {
@@ -116,9 +136,11 @@ const ResultsPage = ({ processedText, onBack }) => {
               }
             }
           }}
-          className={`transition-all duration-200 ${
-            isCurrentWord ? 'bg-blue-100 border-2 border-blue-400 px-1 rounded-md shadow-sm font-semibold transform scale-105' : ''
+          onClick={() => handleWordClick(currentWordCount)}
+          className={`transition-all duration-200 cursor-pointer hover:bg-blue-50 hover:border hover:border-blue-200 hover:rounded-sm ${
+            isCurrentWord ? 'bg-blue-100 border-2 border-blue-400 px-1 rounded-md shadow-sm font-semibold transform scale-105' : 'px-0.5'
           }`}
+          title={`Click to start reading from "${part}"`}
         >
           {part}
         </span>
@@ -228,6 +250,7 @@ const ResultsPage = ({ processedText, onBack }) => {
             {/* Audio Player */}
             <div className="flex justify-center">
               <AudioPlayer
+                ref={audioPlayerRef}
                 text={formatTextForReadability(processedText?.simplified || '', accessibilitySettings)}
                 onWordHighlight={handleWordHighlight}
                 accessibilitySettings={accessibilitySettings}
