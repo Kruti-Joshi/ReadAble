@@ -147,68 +147,103 @@ const AudioPlayer = forwardRef(({ text, speechText, isSimplified, onWordChange, 
   const playFromWord = (wordIndex) => {
     if (!textToSpeak || words.length === 0 || wordIndex >= words.length || wordIndex < 0) return
     
-    console.log(`Starting speech from word ${wordIndex}: "${words[wordIndex]}"`)
+    console.log(`playFromWord: Starting speech from word ${wordIndex}: "${words[wordIndex]}"`)
+    console.log(`playFromWord: Current state - isPlaying: ${isPlaying}, isPaused: ${isPaused}`)
     
-    // Stop current speech
-    if (isPlaying || isPaused) {
-      handleStop()
+    // Clear any existing utterance error handlers to prevent state conflicts
+    if (speechRef.current) {
+      console.log('playFromWord: Clearing existing utterance handlers')
+      speechRef.current.onend = null
+      speechRef.current.onerror = null
+      speechRef.current.onboundary = null
     }
     
-    // Create text starting from the specified word
-    const wordsFromIndex = words.slice(wordIndex)
-    const textFromWord = wordsFromIndex.join(' ')
+    // Stop current speech first
+    if ('speechSynthesis' in window) {
+      console.log('playFromWord: Cancelling existing speech')
+      window.speechSynthesis.cancel()
+    }
+    clearInterval(intervalRef.current)
+    stopWordTracking()
     
-    setStartFromWordIndex(wordIndex)
-    setPausedWordIndex(-1) // Clear paused state
+    // Immediately set state to playing to prevent UI flicker
+    console.log('playFromWord: Setting state to playing immediately')
+    setIsPlaying(true)
+    setIsPaused(false)
     
-    // Immediately highlight the starting word
-    if (onWordChange) onWordChange(wordIndex)
-    if (onWordHighlight) onWordHighlight(wordIndex)
-    
-    // Start speech with the truncated text
-    if ('speechSynthesis' in window && textFromWord.trim().length > 0) {
-      const utterance = new SpeechSynthesisUtterance(textFromWord)
-      utterance.rate = playbackRate
-      utterance.pitch = 1.0
-      utterance.volume = 1.0
+    // Small delay to ensure speech is fully cancelled before starting new speech
+    setTimeout(() => {
+      console.log('playFromWord: Starting new speech after delay')
+      // Create text starting from the specified word
+      const wordsFromIndex = words.slice(wordIndex)
+      const textFromWord = wordsFromIndex.join(' ')
       
-      // Apply selected voice
-      if (selectedVoice) {
-        utterance.voice = selectedVoice
-      }
-      
-      // Set up word tracking with offset for the original text positions
-      startWordTracking(utterance, wordIndex)
-      
-      utterance.onend = () => {
-        console.log('Speech ended')
-        setIsPlaying(false)
-        setIsPaused(false)
-        setCurrentTime(0)
-        currentTimeRef.current = 0
-        clearInterval(intervalRef.current)
-        stopWordTracking()
-        setStartFromWordIndex(0)
-        setPausedWordIndex(-1)
-      }
-
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event.error)
-        setIsPlaying(false)
-        setIsPaused(false)
-        clearInterval(intervalRef.current)
-        stopWordTracking()
-        setStartFromWordIndex(0)
-        setPausedWordIndex(-1)
-      }
-      
-      speechRef.current = utterance
-      window.speechSynthesis.speak(utterance)
-      setIsPlaying(true)
+      // Reset state and set new starting position
+      setStartFromWordIndex(wordIndex)
+      setPausedWordIndex(-1) // Clear paused state
       setCurrentTime(0)
       currentTimeRef.current = 0
-      startTimer()
-    }
+      
+      // Immediately highlight the starting word
+      if (onWordChange) onWordChange(wordIndex)
+      if (onWordHighlight) onWordHighlight(wordIndex)
+      
+      // Start speech with the truncated text
+      if ('speechSynthesis' in window && textFromWord.trim().length > 0) {
+        const utterance = new SpeechSynthesisUtterance(textFromWord)
+        utterance.rate = playbackRate
+        utterance.pitch = 1.0
+        utterance.volume = 1.0
+        
+        // Apply selected voice
+        if (selectedVoice) {
+          utterance.voice = selectedVoice
+        }
+        
+        // Set up word tracking with offset for the original text positions
+        startWordTracking(utterance, wordIndex)
+        
+        utterance.onend = () => {
+          console.log('Speech ended')
+          setIsPlaying(false)
+          setIsPaused(false)
+          setCurrentTime(0)
+          currentTimeRef.current = 0
+          clearInterval(intervalRef.current)
+          stopWordTracking()
+          setStartFromWordIndex(0)
+          setPausedWordIndex(-1)
+        }
+
+        utterance.onerror = (event) => {
+          console.error('playFromWord utterance: Speech synthesis error:', event.error)
+          console.log('playFromWord utterance: speechRef.current === utterance:', speechRef.current === utterance)
+          // Only reset state if this is the current utterance
+          if (speechRef.current === utterance) {
+            console.log('playFromWord utterance: Resetting state due to error on current utterance')
+            setIsPlaying(false)
+            setIsPaused(false)
+            clearInterval(intervalRef.current)
+            stopWordTracking()
+            setStartFromWordIndex(0)
+            setPausedWordIndex(-1)
+          } else {
+            console.log('playFromWord utterance: Ignoring error on old utterance')
+          }
+        }
+        
+        speechRef.current = utterance
+        
+        // Ensure state is set to playing right before speaking
+        console.log('playFromWord: Final state set to playing before speak')
+        setIsPlaying(true)
+        setIsPaused(false)
+        
+        console.log('playFromWord: Speaking new utterance')
+        window.speechSynthesis.speak(utterance)
+        startTimer()
+      }
+    }, 100) // Increased delay to 100ms for more reliable cancellation
   }
 
   const stopWordTracking = () => {
