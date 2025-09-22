@@ -46,6 +46,15 @@ public class SummarizeDocumentFunction
 
         try
         {
+            // Read and log request body for debugging
+            req.Body.Position = 0;
+            var bodyString = await new StreamReader(req.Body).ReadToEndAsync();
+            _logger.LogInformation("Request body received: {BodySize} characters", bodyString.Length);
+            _logger.LogInformation("Request body preview: {BodyPreview}", bodyString.Length > 500 ? bodyString.Substring(0, 500) + "..." : bodyString);
+            
+            // Reset stream position for deserialization
+            req.Body.Position = 0;
+            
             // Parse request body
             var requestBody = await JsonSerializer.DeserializeAsync<SummarizeDocumentRequest>(
                 req.Body, 
@@ -56,6 +65,21 @@ public class SummarizeDocumentFunction
             {
                 _logger.LogWarning("Request body is null or invalid");
                 return await CreateErrorResponse(req, HttpStatusCode.BadRequest, "Invalid request body");
+            }
+
+            // Log detailed information about the parsed request
+            _logger.LogInformation("Parsed request - DocId: {DocId}, ChunkCount: {ChunkCount}", 
+                requestBody.DocId, requestBody.Chunks?.Count ?? 0);
+                
+            if (requestBody.Chunks != null)
+            {
+                for (int i = 0; i < requestBody.Chunks.Count; i++)
+                {
+                    var chunk = requestBody.Chunks[i];
+                    _logger.LogInformation("Chunk {Index} - Id: {Id}, Seq: {Seq}, TokenEstimate: {Tokens}, Text Length: {Length}, Text Preview: {Preview}", 
+                        i, chunk.Id, chunk.Seq, chunk.TokenEstimate, chunk.Text?.Length ?? 0, 
+                        chunk.Text?.Length > 100 ? chunk.Text.Substring(0, 100) + "..." : chunk.Text);
+                }
             }
 
             // Validate input

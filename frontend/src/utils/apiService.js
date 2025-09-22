@@ -30,6 +30,29 @@ export async function summarizeDocument(docId, chunks, options = {}) {
     chunks: requestChunks
   };
 
+  // Detailed logging for debugging
+  console.log('=== API REQUEST TO BACKEND ===')
+  console.log('Document ID:', docId)
+  console.log('Number of chunks being sent:', requestChunks.length)
+  console.log('Request body structure:', {
+    docId: requestBody.docId,
+    chunksCount: requestBody.chunks.length,
+    totalCharacters: requestBody.chunks.reduce((sum, chunk) => sum + chunk.text.length, 0)
+  })
+  
+  requestChunks.forEach((chunk, index) => {
+    console.log(`API Chunk ${index + 1}:`, {
+      id: chunk.id,
+      seq: chunk.seq,
+      textLength: chunk.text.length,
+      tokenEstimate: chunk.tokenEstimate,
+      textPreview: chunk.text.substring(0, 100) + '...'
+    })
+  })
+  
+  console.log('Full request body being sent:', JSON.stringify(requestBody, null, 2))
+  console.log('=== END API REQUEST ===')
+
   try {
     const response = await fetch(`${API_BASE_URL}/summarize`, {
       method: 'POST',

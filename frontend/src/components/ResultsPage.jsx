@@ -275,7 +275,7 @@ const ResultsPage = ({ processedText, onBack }) => {
             {processedText?.processingStats && (
               <div className={`${theme.bg} rounded-lg p-6 border shadow-sm mt-8`}>
                 <h3 className={`text-lg font-medium ${theme.text} mb-4`}>Processing Summary</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-sm">
                   <div className={`p-4 rounded-lg ${theme.bgSecondary}`}>
                     <span className={`${theme.text} font-medium block`}>Total Chunks:</span>
                     <span className={`${theme.textSecondary} text-lg font-semibold`}>
@@ -294,11 +294,115 @@ const ResultsPage = ({ processedText, onBack }) => {
                       {processedText.processingStats.wordCount.toLocaleString()}
                     </span>
                   </div>
+                  {processedText.processingStats.imageCount > 0 && (
+                    <div className={`p-4 rounded-lg ${theme.bgSecondary}`}>
+                      <span className={`${theme.text} font-medium block`}>Images Processed:</span>
+                      <span className={`${theme.textSecondary} text-lg font-semibold`}>
+                        {processedText.processingStats.imageCount}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 {processedText.processingStats.errors && processedText.processingStats.errors.length > 0 && (
                   <div className="mt-4 p-4 bg-red-50 rounded-lg border border-red-200">
                     <span className="text-red-700 font-medium text-sm">Processing Errors:</span>
                     <span className="text-red-600 ml-2 text-sm">{processedText.processingStats.errors.length} chunks had errors</span>
+                  </div>
+                )}
+                
+                {/* Image Processing Results */}
+                {processedText?.imageSummary && processedText.imageSummary.totalImages > 0 && (
+                  <div className="mt-6">
+                    <h4 className={`text-md font-medium ${theme.text} mb-3`}>Image Processing Results</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div className={`p-3 rounded-lg ${theme.bgSecondary}`}>
+                        <span className={`${theme.text} font-medium block`}>Text Images:</span>
+                        <span className={`${theme.textSecondary} text-lg font-semibold`}>
+                          {processedText.imageSummary.textImages}
+                        </span>
+                        <span className={`${theme.textSecondary} text-xs block`}>OCR processed</span>
+                      </div>
+                      <div className={`p-3 rounded-lg ${theme.bgSecondary}`}>
+                        <span className={`${theme.text} font-medium block`}>Diagrams:</span>
+                        <span className={`${theme.textSecondary} text-lg font-semibold`}>
+                          {processedText.imageSummary.diagrams}
+                        </span>
+                        <span className={`${theme.textSecondary} text-xs block`}>Ready for analysis</span>
+                      </div>
+                      <div className={`p-3 rounded-lg ${theme.bgSecondary}`}>
+                        <span className={`${theme.text} font-medium block`}>OCR Text Length:</span>
+                        <span className={`${theme.textSecondary} text-lg font-semibold`}>
+                          {processedText.imageSummary.totalOcrText?.length || 0}
+                        </span>
+                        <span className={`${theme.textSecondary} text-xs block`}>characters</span>
+                      </div>
+                    </div>
+                    
+                    {/* Detailed Image Results */}
+                    {processedText.images && processedText.images.length > 0 && (
+                      <div className="mt-4">
+                        <details className={`${theme.bgSecondary} rounded-lg p-4`}>
+                          <summary className={`${theme.text} font-medium cursor-pointer`}>
+                            View Detailed Image Results ({processedText.images.length} images)
+                          </summary>
+                          <div className="mt-3 space-y-3">
+                            {processedText.images.map((img, index) => (
+                              <div key={index} className={`${theme.bg} rounded-lg p-3 border`}>
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <span className={`${theme.text} font-medium text-sm`}>
+                                      {img.originalFilename || `Image ${index + 1}`}
+                                    </span>
+                                    <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
+                                      img.type === 'text-image' 
+                                        ? 'bg-green-100 text-green-800' 
+                                        : img.type === 'diagram'
+                                        ? 'bg-blue-100 text-blue-800'
+                                        : 'bg-red-100 text-red-800'
+                                    }`}>
+                                      {img.type === 'text-image' ? 'Text Extracted' : 
+                                       img.type === 'diagram' ? 'Diagram' : 'Error'}
+                                    </span>
+                                  </div>
+                                  {img.originalImage && (
+                                    <img 
+                                      src={img.originalImage} 
+                                      alt={`Processed image ${index + 1}`}
+                                      className="w-16 h-16 object-cover rounded border ml-3"
+                                    />
+                                  )}
+                                </div>
+                                {img.ocrText && (
+                                  <div className="mt-2">
+                                    <span className={`${theme.textSecondary} text-xs font-medium`}>Extracted Text:</span>
+                                    <p className={`${theme.textSecondary} text-xs mt-1 max-w-full overflow-hidden`}>
+                                      {img.ocrText.substring(0, 200)}
+                                      {img.ocrText.length > 200 ? '...' : ''}
+                                    </p>
+                                    {img.confidence && (
+                                      <span className={`text-xs ${
+                                        img.confidence > 70 ? 'text-green-600' : 
+                                        img.confidence > 40 ? 'text-yellow-600' : 'text-red-600'
+                                      }`}>
+                                        Confidence: {Math.round(img.confidence)}%
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                                {img.diagramData && (
+                                  <div className="mt-2">
+                                    <span className={`${theme.textSecondary} text-xs font-medium`}>Analysis:</span>
+                                    <p className={`${theme.textSecondary} text-xs mt-1`}>
+                                      {img.diagramData.description}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

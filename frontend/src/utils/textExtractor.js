@@ -4,6 +4,7 @@
 
 import mammoth from 'mammoth'
 import * as pdfjsLib from 'pdfjs-dist';
+import { processDocumentImages, createImageSummary, cleanupImageUrls } from './imageProcessor';
 
 // Initialize and configure PDF.js worker using local file
 if (typeof window !== 'undefined') {
@@ -14,24 +15,27 @@ if (typeof window !== 'undefined') {
 
 
 /**
- * Extracts text content from a file based on its type
+ * Extracts text content from a file based on its type, including images for Word documents
  * @param {File} file - The file to extract text from
- * @returns {Promise<string>} - Extracted text content
+ * @param {Function} progressCallback - Optional callback for progress updates
+ * @returns {Promise<Object>} - Extracted content with text and image data
  */
-export async function extractTextFromFile(file) {
+export async function extractTextFromFile(file, progressCallback = null) {
   const fileType = file.type.toLowerCase();
   const fileName = file.name.toLowerCase();
 
   try {
     if (fileType === 'text/plain' || fileName.endsWith('.txt')) {
-      return await extractTextFromTextFile(file);
+      const text = await extractTextFromTextFile(file);
+      return { text, images: [] };
     } else if (
       fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
       fileName.endsWith('.docx')
     ) {
-      return await extractTextFromDocxFile(file);
+      return await extractContentFromDocxFile(file, progressCallback);
     } else if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
-      return await extractTextFromPdfFile(file);
+      const text = await extractTextFromPdfFile(file);
+      return { text, images: [] };
     } else if (fileType === 'application/msword' || fileName.endsWith('.doc')) {
       throw new Error('Legacy Word document (.doc) extraction is not supported. Please save as .docx format or use text files.');
     } else {
@@ -96,11 +100,12 @@ function isValidDocxStructure(arrayBuffer) {
 }
 
 /**
- * Extracts text from a DOCX Word document
+ * Extracts text and processes images from a DOCX Word document
  * @param {File} file - DOCX file
- * @returns {Promise<string>} - Extracted text content
+ * @param {Function} progressCallback - Optional callback for progress updates
+ * @returns {Promise<Object>} - Extracted content with text and processed images
  */
-async function extractTextFromDocxFile(file) {
+async function extractContentFromDocxFile(file, progressCallback = null) {
   return new Promise((resolve, reject) => {
     // Validate file size (reasonable limits)
     if (file.size === 0) {
@@ -129,28 +134,238 @@ async function extractTextFromDocxFile(file) {
           throw new Error('This does not appear to be a valid Word document (.docx). Please check the file format.');
         }
         
-        // Try to extract text using mammoth
-        const result = await mammoth.extractRawText({ arrayBuffer });
+        if (progressCallback) progressCallback('Extracting text from Word document...', 10);
+        
+        // Store images for processing
+        const extractedImages = [];
+        
+        console.log('=== MAMMOTH EXTRACTION STARTING ===');
+        console.log('File name:', file.name);
+        console.log('File size:', file.size, 'bytes');
+        console.log('Array buffer size:', arrayBuffer.byteLength, 'bytes');
+        
+        // Let's also try to check the raw document structure
+        try {
+          // Convert to HTML to see the structure
+          const structureResult = await mammoth.convertToHtml({ arrayBuffer });
+          console.log('Document HTML length:', structureResult.value?.length || 0);
+          console.log('Document HTML preview:', structureResult.value?.substring(0, 500) || 'No HTML content');
+          
+          // Check if HTML contains any img tags
+          const imgMatches = structureResult.value?.match(/<img[^>]*>/g) || [];
+          console.log('IMG tags found in HTML:', imgMatches.length);
+          if (imgMatches.length > 0) {
+            console.log('IMG tags:', imgMatches);
+          }
+        } catch (structureError) {
+          console.log('Error checking document structure:', structureError.message);
+        }
+        
+        // Configure mammoth to extract both text and images
+        const mammothOptions = {
+          convertImage: mammoth.images.imgElement(function(image) {
+            console.log('=== MAMMOTH FOUND IMAGE ===');
+            console.log('Image content type:', image.contentType);
+            console.log('Image read method available:', typeof image.read);
+            
+            // Store image data for later processing
+            extractedImages.push({
+              buffer: image.read(),
+              contentType: image.contentType,
+              filename: `image_${extractedImages.length + 1}.${image.contentType?.split('/')[1] || 'png'}`
+            });
+            
+            console.log('Added image to extraction list. Total images so far:', extractedImages.length);
+            
+            // Return a placeholder for the document text
+            return Promise.resolve({
+              src: `[IMAGE_PLACEHOLDER_${extractedImages.length}]`
+            });
+          })
+        };
+        
+        // Extract text using mammoth with image handling
+        // Use convertToHtml first to capture images, then extract text
+        console.log('Starting mammoth.convertToHtml to capture images...');
+        
+        let htmlResult, textResult;
+        
+        try {
+          // First, get HTML to extract base64 images
+          htmlResult = await mammoth.convertToHtml({ arrayBuffer });
+          console.log('HTML conversion complete.');
+          
+          // Extract base64 images from the HTML
+          const imgRegex = /<img[^>]+src="data:image\/([^;]+);base64,([^"]+)"[^>]*>/g;
+          let imgMatch;
+          let imageIndex = 0;
+          
+          while ((imgMatch = imgRegex.exec(htmlResult.value)) !== null) {
+            imageIndex++;
+            console.log(`=== FOUND BASE64 IMAGE ${imageIndex} ===`);
+            
+            const imageType = imgMatch[1]; // png, jpeg, etc.
+            const base64Data = imgMatch[2];
+            
+            console.log('Image type:', imageType);
+            console.log('Base64 data length:', base64Data.length);
+            
+            // Convert base64 to buffer
+            try {
+              const binaryString = atob(base64Data);
+              const bytes = new Uint8Array(binaryString.length);
+              for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+              }
+              
+              extractedImages.push({
+                buffer: Promise.resolve(bytes.buffer),
+                contentType: `image/${imageType}`,
+                filename: `image_${imageIndex}.${imageType}`
+              });
+              
+              console.log(`Added image ${imageIndex} to extraction list. Total images so far:`, extractedImages.length);
+            } catch (conversionError) {
+              console.error(`Error converting image ${imageIndex}:`, conversionError);
+            }
+          }
+          
+          console.log('Image extraction from HTML complete. Total images found:', extractedImages.length);
+          
+          // Now extract raw text for cleaner text processing
+          console.log('Starting mammoth.extractRawText for clean text...');
+          textResult = await mammoth.extractRawText({ arrayBuffer });
+          console.log('Text extraction complete. Final image count:', extractedImages.length);
+        } catch (mammothError) {
+          console.error('Mammoth processing error:', mammothError);
+          // Fallback to text-only extraction
+          console.log('Falling back to text-only extraction...');
+          textResult = await mammoth.extractRawText({ arrayBuffer });
+          htmlResult = { messages: [] };
+        }
         
         // Log any warnings but don't fail
-        if (result.messages && result.messages.length > 0) {
-          console.warn('Word document extraction warnings:', result.messages);
+        if (htmlResult && htmlResult.messages && htmlResult.messages.length > 0) {
+          console.warn('Word document HTML conversion warnings:', htmlResult.messages);
+        }
+        if (textResult && textResult.messages && textResult.messages.length > 0) {
+          console.warn('Word document text extraction warnings:', textResult.messages);
+        }
+        
+        if (progressCallback) progressCallback('Processing images...', 30);
+        
+        let documentText = (textResult && textResult.value) || '';
+        let processedImages = [];
+        let imageSummary = { totalImages: 0, textImages: 0, diagrams: 0, totalOcrText: '' };
+        
+        // Process images if any were found
+        if (extractedImages.length > 0) {
+          console.log(`=== PROCESSING ${extractedImages.length} IMAGES ===`);
+          
+          try {
+            // Convert image buffers to actual buffers
+            const imagePromises = extractedImages.map(async (img, index) => {
+              console.log(`Processing image ${index + 1}:`, {
+                contentType: img.contentType,
+                filename: img.filename,
+                hasBuffer: !!img.buffer
+              });
+              const buffer = await img.buffer;
+              console.log(`Image ${index + 1} buffer resolved:`, buffer?.byteLength || 0, 'bytes');
+              return {
+                ...img,
+                buffer: buffer
+              };
+            });
+            
+            const resolvedImages = await Promise.all(imagePromises);
+            console.log('All image buffers resolved. Proceeding to OCR processing...');
+            
+            if (progressCallback) progressCallback('Running OCR on images...', 50);
+            
+            // Process images for OCR and diagram detection
+            processedImages = await processDocumentImages(resolvedImages);
+            imageSummary = createImageSummary(processedImages);
+            
+            // Add OCR text to the main document text
+            if (imageSummary.totalOcrText) {
+              documentText += '\n\n--- Text extracted from images ---\n\n' + imageSummary.totalOcrText;
+            }
+            
+            // Replace image placeholders with descriptions
+            processedImages.forEach((imgResult, index) => {
+              const placeholder = `[IMAGE_PLACEHOLDER_${index + 1}]`;
+              let replacement = '';
+              
+              if (imgResult.type === 'text-image' && imgResult.ocrText) {
+                replacement = `[Image ${index + 1}: Contains text - "${imgResult.ocrText.substring(0, 100)}${imgResult.ocrText.length > 100 ? '...' : ''}"]`;
+              } else if (imgResult.type === 'diagram') {
+                replacement = `[Image ${index + 1}: Diagram or flowchart detected]`;
+              } else {
+                replacement = `[Image ${index + 1}: Unable to process]`;
+              }
+              
+              documentText = documentText.replace(placeholder, replacement);
+            });
+            
+            if (progressCallback) progressCallback('Image processing complete', 90);
+            
+          } catch (imageError) {
+            console.error('Error processing images:', imageError);
+            // Continue with text extraction even if image processing fails
+            imageSummary.errors = extractedImages.length;
+          }
         }
         
         // Check if we got any text
-        if (!result.value || result.value.trim().length === 0) {
+        if (!documentText || documentText.trim().length === 0) {
           throw new Error('No text content could be extracted from this Word document. The document might be empty or contain only images/tables.');
         }
         
-        resolve(result.value);
+        if (progressCallback) progressCallback('Extraction complete', 100);
+        
+        const finalResult = {
+          text: documentText,
+          images: processedImages,
+          imageSummary: imageSummary,
+          metadata: {
+            originalImageCount: extractedImages.length,
+            processedImageCount: processedImages.length,
+            ocrTextLength: imageSummary.totalOcrText.length,
+            documentTextLength: documentText.length
+          }
+        };
+        
+        console.log('=== FINAL EXTRACTION RESULT ===');
+        console.log('Document text length:', documentText.length);
+        console.log('Original images found:', extractedImages.length);
+        console.log('Processed images:', processedImages.length);
+        console.log('Total OCR text:', imageSummary.totalOcrText.length);
+        console.log('Image summary:', imageSummary);
+        console.log('=== END EXTRACTION ===');
+        
+        resolve(finalResult);
       } catch (error) {
+        console.error('Error in Word document extraction:', error);
+        
+        // Clean up any created object URLs (only if extractedImages is defined)
+        if (typeof cleanupImageUrls === 'function' && typeof extractedImages !== 'undefined' && extractedImages) {
+          try {
+            cleanupImageUrls(extractedImages);
+          } catch (cleanupError) {
+            console.warn('Error cleaning up image URLs:', cleanupError);
+          }
+        }
+        
         // Provide more specific error messages based on the error
         if (error.message.includes('zip file') || error.message.includes('central directory')) {
           reject(new Error('The Word document appears to be corrupted or is not a valid .docx file. Please try saving the document again or use a different file.'));
         } else if (error.message.includes('Cannot read properties')) {
           reject(new Error('Invalid Word document format. Please ensure the file is a valid .docx document.'));
+        } else if (error.message.includes('Could not find file in options')) {
+          reject(new Error('Error loading document processing library. Please refresh the page and try again.'));
         } else {
-          reject(new Error('Failed to extract text from Word document: ' + error.message));
+          reject(new Error('Failed to extract content from Word document: ' + error.message));
         }
       }
     };

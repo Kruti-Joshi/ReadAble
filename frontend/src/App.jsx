@@ -34,15 +34,77 @@ function App() {
 
       // Extract text from file
       setProcessingProgress({ stage: 'extracting', message: 'Reading document...' })
-      const originalText = await extractTextFromFile(file)
+      const extractionResult = await extractTextFromFile(file, (message, progress) => {
+        setProcessingProgress({ 
+          stage: 'extracting', 
+          message: message || 'Reading document...', 
+          progress: progress || 0 
+        })
+      })
+      
+      // Handle different return formats (backward compatibility)
+      const originalText = typeof extractionResult === 'string' ? extractionResult : extractionResult.text
+      const extractedImages = extractionResult.images || []
+      const imageSummary = extractionResult.imageSummary || { totalImages: 0 }
+      
+      // Detailed logging for debugging
+      console.log('=== FILE EXTRACTION RESULTS ===')
+      console.log('Extraction result type:', typeof extractionResult)
+      console.log('Original text length:', originalText?.length || 0)
+      console.log('Number of images found:', extractedImages.length)
+      console.log('Image summary:', imageSummary)
+      
+      if (extractedImages.length > 0) {
+        console.log('=== DETAILED IMAGE PROCESSING ===')
+        extractedImages.forEach((img, index) => {
+          console.log(`Image ${index + 1}:`, {
+            type: img.type,
+            filename: img.originalFilename,
+            ocrText: img.ocrText ? `"${img.ocrText.substring(0, 100)}..."` : 'No OCR text',
+            confidence: img.confidence,
+            hasError: !!img.error
+          })
+        })
+        console.log('Total OCR text length:', imageSummary.totalOcrText?.length || 0)
+        console.log('OCR text preview:', imageSummary.totalOcrText?.substring(0, 200) || 'No OCR text')
+      }
+      
+      console.log('Final text to be chunked (length):', originalText.length)
+      console.log('Final text preview:', originalText.substring(0, 300) + '...')
+      console.log('=== END EXTRACTION RESULTS ===')
       
       if (!originalText || originalText.trim().length === 0) {
         throw new Error('No text could be extracted from the file.')
       }
 
-      // Chunk the text for processing
+      // Log image processing results
+      if (extractedImages.length > 0) {
+        console.log(`Processed ${extractedImages.length} images:`, imageSummary)
+      }
+
+      // Combine document text with OCR text from images
+      let textForProcessing = originalText || ''
+      if (imageSummary.totalOcrText && imageSummary.totalOcrText.trim().length > 0) {
+        textForProcessing += '\n\n=== TEXT FROM IMAGES ===\n\n' + imageSummary.totalOcrText
+        console.log('=== COMBINING TEXT ===')
+        console.log('Original document text length:', originalText?.length || 0)
+        console.log('OCR text length:', imageSummary.totalOcrText.length)
+        console.log('Combined text length:', textForProcessing.length)
+        console.log('OCR text being added:', imageSummary.totalOcrText.substring(0, 300) + '...')
+      }
+
+      // Chunk the combined text for processing
       setProcessingProgress({ stage: 'chunking', message: 'Preparing text for processing...' })
-      const chunks = chunkText(originalText)
+      const chunks = chunkText(textForProcessing)
+      
+      // Log chunking results
+      console.log('=== TEXT CHUNKING RESULTS ===')
+      console.log('Number of chunks created:', chunks.length)
+      chunks.forEach((chunk, index) => {
+        console.log(`Chunk ${index + 1} - Length: ${chunk.text.length}, Tokens: ${chunk.tokenCount}`)
+        console.log(`Chunk ${index + 1} preview: "${chunk.text.substring(0, 150)}..."`)
+      })
+      console.log('=== END CHUNKING RESULTS ===')
       
       // Validate chunks
       const validation = validateChunks(chunks)
@@ -81,11 +143,15 @@ function App() {
         original: combinedText.originalText,
         simplified: combinedText.displayText,
         speechText: combinedText.speechText,
+        images: extractedImages,
+        imageSummary: imageSummary,
         processingStats: {
           totalChunks: result.totalChunks,
           successfulChunks: result.successfulChunks,
           errors: result.errors,
-          wordCount: originalText.split(/\s+/).filter(word => word.length > 0).length
+          wordCount: originalText.split(/\s+/).filter(word => word.length > 0).length,
+          imageCount: extractedImages.length,
+          ocrTextLength: imageSummary.totalOcrText?.length || 0
         }
       })
 
