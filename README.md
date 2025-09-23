@@ -183,7 +183,7 @@ ReadAble Hackathon 2025/
 ![Landing Page](Mockup%201%20-%20Landing%20page.png)
 
 ### Results Page
-*Shows original vs simplified text with audio controls*
+*Shows simplified text with audio controls*
 
 ![Results Page](Mockup%202%20-%20Results.png)
 
@@ -206,6 +206,8 @@ ReadAble Hackathon 2025/
 - Real-time text-to-speech
 - **Image processing and OCR** for Word documents (.docx)
 - **Smart image classification** (text images vs. diagrams)
+- **Backend API integration** for text simplification with Azure OpenAI
+- **Customizable color themes** for different visual needs (including research-backed cream backgrounds for dyslexia)
 
 ✅ **Completed - Document Processing**
 - Word document (.docx) text extraction with mammoth.js
@@ -215,7 +217,6 @@ ReadAble Hackathon 2025/
 - Combined text processing (document text + OCR results)
 
 🚧 **In Progress**
-- Backend API integration for text simplification
 - PDF image processing and OCR support
 
 🔮 **Planned**
@@ -228,9 +229,7 @@ ReadAble Hackathon 2025/
 - Reading level analysis and recommendations
 - Enhanced export functionality with accessible formats
 - Voice customization for different needs
-- Batch processing for multiple documents
 - Integration with assistive technologies
-- Customizable color themes for different visual needs (including research-backed cream backgrounds for dyslexia)
 
 ## 🤝 Contributing
 
