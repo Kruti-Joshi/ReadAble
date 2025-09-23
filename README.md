@@ -1,23 +1,4 @@
 # ReadAble - Accessible Reading Assistant
-- **📁 File Upload**: Drag-and-drop support for PDF, Word documents, and text files
-- **🖼️ Image Processing**: OCR text extraction from images in Word documents (.docx)
-- **✏️ Text Simplification**: Converts complex text into A2 reading level plain language
-- **🔒 Privacy First**: Files never leave your session - completely private
-
-### 🖼️ **Image & OCR Support**
-- **📄 Word Document Images**: Automatic detection and text extraction from images in .docx files
-- **🔍 OCR Technology**: Powered by Tesseract.js for accurate text recognition
-- **📊 Smart Classification**: Distinguishes between text-containing images and diagrams
-- **⚠️ Current Limitations**: 
-  - PDF image extraction not yet supported
-  - Technical diagrams (UML, flowcharts) are detected but not simplified
-  - OCR accuracy depends on image quality and text clarityccessibility**
-- **Text-to-Speech**: Built-in browser-native speech synthesis
-- **Word Synchronization**: Visual highlighting follows audio playback using gentle blue borders instead of high-contrast yellow (which can cause visual stress for some users with dyslexia)
-- **Speed Control**: Adjustable reading speed for different needs
-- **Voice Selection**: Multiple voice options where availableg Assistant
-
-> **Hackathon Project 2025** - Making documents accessible for people with dyslexia and learning disabilities through evidence-based design and assistive technology
 
 ## 🌟 Overview
 
@@ -111,7 +92,11 @@ ReadAble includes sophisticated image processing capabilities for Word documents
 - **Canvas API** - Image processing and analysis for smart classification
 
 ### Backend
-- *To be implemented* - Text processing API
+- **Azure Functions (.NET 8)** - Serverless API with isolated process model
+- **Azure OpenAI Integration** - GPT-5o-mini model for intelligent text simplification
+- **HTTP-triggered Function** - Document summarization endpoint (`/api/summarize`)
+- **Accessibility-Focused Prompts** - System prompts designed for learning disabilities
+- **Comprehensive Error Handling** - Graceful fallback and detailed validation
 
 ## 📁 Project Structure
 
@@ -133,7 +118,22 @@ ReadAble Hackathon 2025/
 │   │   └── index.css              # Global styles with accessibility
 │   ├── package.json
 │   └── README.md
-├── backend/                  # Backend API (to be implemented)
+├── backend/                      # Azure Functions backend (.NET 8)
+│   ├── Configuration/
+│   │   └── AppOptions.cs         # Configuration classes
+│   ├── Functions/
+│   │   └── SummarizeDocumentFunction.cs  # Main HTTP function
+│   ├── Models/
+│   │   ├── SummarizeDocumentRequest.cs   # Request DTOs
+│   │   └── SummarizeDocumentResponse.cs  # Response DTOs
+│   ├── Services/
+│   │   └── TextSimplificationService.cs  # Azure OpenAI integration
+│   ├── Program.cs               # App entry point with DI setup
+│   ├── appsettings.json         # App configuration & AI prompts
+│   ├── host.json               # Function host config
+│   ├── local.settings.json     # Local development settings
+│   ├── ReadAble.Backend.csproj # Project file
+│   └── README.md               # Backend documentation
 └── README.md                # This file
 ```
 

@@ -11,6 +11,7 @@ const AudioPlayer = forwardRef(({ text, speechText, isSimplified, onWordChange, 
   const [voiceType, setVoiceType] = useState('female') // 'male', 'female'
   const [startFromWordIndex, setStartFromWordIndex] = useState(0) // New: track starting word
   const [pausedWordIndex, setPausedWordIndex] = useState(-1) // New: track paused word
+  const [currentWordIndex, setCurrentWordIndex] = useState(-1) // Track current word being spoken
   const speechRef = useRef(null)
   const intervalRef = useRef(null)
   const currentTimeRef = useRef(0)
@@ -88,6 +89,13 @@ const AudioPlayer = forwardRef(({ text, speechText, isSimplified, onWordChange, 
     }
     
     setSelectedVoice(targetVoice)
+    
+    // Log which voice is being used
+    if (targetVoice) {
+      console.log(`Voice selected: ${targetVoice.name} (${targetVoice.lang}) - Local: ${targetVoice.localService}`)
+    } else {
+      console.log('No voice selected - speech synthesis may not work')
+    }
   }
 
   // Update playback rate when accessibility settings change
@@ -127,6 +135,9 @@ const AudioPlayer = forwardRef(({ text, speechText, isSimplified, onWordChange, 
         console.log(`Word tracking: event.charIndex=${event.charIndex}, relative=${relativeWordIndex}, absolute=${absoluteWordIndex}, word="${words[absoluteWordIndex] || 'undefined'}"`)
         
         if (absoluteWordIndex < words.length) {
+          // Update internal tracking
+          setCurrentWordIndex(absoluteWordIndex)
+          
           // Use both callbacks for backward compatibility
           if (onWordChange) onWordChange(absoluteWordIndex)
           if (onWordHighlight) onWordHighlight(absoluteWordIndex)
@@ -198,6 +209,9 @@ const AudioPlayer = forwardRef(({ text, speechText, isSimplified, onWordChange, 
         // Apply selected voice
         if (selectedVoice) {
           utterance.voice = selectedVoice
+          console.log(`playFromWord: Using voice: ${selectedVoice.name} (${selectedVoice.lang})`)
+        } else {
+          console.log('playFromWord: No voice selected, using default')
         }
         
         // Set up word tracking with offset for the original text positions
@@ -213,9 +227,16 @@ const AudioPlayer = forwardRef(({ text, speechText, isSimplified, onWordChange, 
           stopWordTracking()
           setStartFromWordIndex(0)
           setPausedWordIndex(-1)
+          setCurrentWordIndex(-1) // Reset current word tracking
         }
 
         utterance.onerror = (event) => {
+          // Ignore "interrupted" errors as they're expected when we stop speech intentionally
+          if (event.error === 'interrupted') {
+            console.log('Speech was intentionally interrupted (stopped by user)')
+            return
+          }
+          
           console.error('playFromWord utterance: Speech synthesis error:', event.error)
           console.log('playFromWord utterance: speechRef.current === utterance:', speechRef.current === utterance)
           // Only reset state if this is the current utterance
@@ -227,6 +248,7 @@ const AudioPlayer = forwardRef(({ text, speechText, isSimplified, onWordChange, 
             stopWordTracking()
             setStartFromWordIndex(0)
             setPausedWordIndex(-1)
+            setCurrentWordIndex(-1) // Reset current word tracking
           } else {
             console.log('playFromWord utterance: Ignoring error on old utterance')
           }
@@ -274,6 +296,9 @@ const AudioPlayer = forwardRef(({ text, speechText, isSimplified, onWordChange, 
         // Apply selected voice
         if (selectedVoice) {
           utterance.voice = selectedVoice
+          console.log(`handlePlay: Using voice: ${selectedVoice.name} (${selectedVoice.lang})`)
+        } else {
+          console.log('handlePlay: No voice selected, using default')
         }
         
         // Set up word tracking before other events
@@ -286,14 +311,22 @@ const AudioPlayer = forwardRef(({ text, speechText, isSimplified, onWordChange, 
           currentTimeRef.current = 0 // Reset ref
           clearInterval(intervalRef.current)
           stopWordTracking()
+          setCurrentWordIndex(-1) // Reset current word tracking
         }
 
         utterance.onerror = (event) => {
+          // Ignore "interrupted" errors as they're expected when we stop speech intentionally
+          if (event.error === 'interrupted') {
+            console.log('Speech was intentionally interrupted (stopped by user)')
+            return
+          }
+          
           console.error('Speech synthesis error:', event.error)
           setIsPlaying(false)
           setIsPaused(false)
           clearInterval(intervalRef.current)
           stopWordTracking()
+          setCurrentWordIndex(-1) // Reset current word tracking
         }
         
         speechRef.current = utterance
@@ -327,32 +360,47 @@ const AudioPlayer = forwardRef(({ text, speechText, isSimplified, onWordChange, 
       currentTimeRef.current = 0 // Reset ref
       clearInterval(intervalRef.current)
       stopWordTracking()
+      setCurrentWordIndex(-1) // Reset current word tracking
     }
   }
 
   const handleSpeedChange = (newRate) => {
     setPlaybackRate(newRate)
     
-    // If currently playing, restart with new speed
+    // If currently playing, restart with new speed from current word position
     if (isPlaying && !isPaused) {
-      handleStop()
-      // Small delay to ensure speech is stopped before restarting
+      console.log(`Speed changed to ${newRate}x while playing, restarting from word ${currentWordIndex}`)
+      
+      // Use playFromWord to restart from current position with new speed
+      const restartWordIndex = Math.max(0, currentWordIndex)
+      
+      // Small delay to ensure speed is updated before restarting
       setTimeout(() => {
-        handlePlay()
-      }, 100)
+        playFromWord(restartWordIndex)
+      }, 50)
     }
   }
 
   const handleVoiceTypeChange = (newType) => {
+    console.log(`Voice type changing from ${voiceType} to ${newType}`)
     setVoiceType(newType)
     
-    // If currently playing, restart with new voice
+    // Force update voice selection with current available voices
+    if (availableVoices.length > 0) {
+      updateVoiceSelection(newType, availableVoices)
+    }
+    
+    // If currently playing, restart with new voice from current word position
     if (isPlaying && !isPaused) {
-      handleStop()
-      // Small delay to ensure speech is stopped before restarting
+      console.log(`Voice changed to ${newType} while playing, restarting from word ${currentWordIndex}`)
+      
+      // Use playFromWord to restart from current position with new voice
+      const restartWordIndex = Math.max(0, currentWordIndex)
+      
+      // Small delay to ensure voice is updated before restarting
       setTimeout(() => {
-        handlePlay()
-      }, 100)
+        playFromWord(restartWordIndex)
+      }, 100) // Increased delay for voice change
     }
   }
 
